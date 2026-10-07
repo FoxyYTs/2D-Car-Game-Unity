@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using UnityEngine;
 #if UNITY_EDITOR
 using UnityEditor;
@@ -27,6 +28,8 @@ public class CheckpointCircuit : MonoBehaviour
     [Min(0)] public float Clearance = 1.5f;
     [Tooltip("Layers that count as obstacles when placing checkpoints (not the agents).")]
     public LayerMask ObstacleMask = 1 << 0;
+    [Tooltip("Describe reports a leg whose straight line passes closer than this to an obstacle (about a car's width).")]
+    [Min(0)] public float PathClearance = 1;
     public Vector2 ArenaMin = new(-24.5f, -6.5f);
     public Vector2 ArenaMax = new(25, 10.5f);
 
@@ -66,6 +69,31 @@ public class CheckpointCircuit : MonoBehaviour
         }
 
         RefreshMarkers();
+    }
+
+    // One line per checkpoint: position, turn angle there (positive = left) and the leg to the next one.
+    public string Describe()
+    {
+        var text = new StringBuilder();
+        var obstacles = new ContactFilter2D { useTriggers = false };
+        obstacles.SetLayerMask(ObstacleMask);
+        var hits = new RaycastHit2D[1];
+
+        for (int i = 0; i < Count; i++)
+        {
+            Vector2 previous = this[i + Count - 1].transform.position;
+            Vector2 current = this[i].transform.position;
+            Vector2 next = this[i + 1].transform.position;
+
+            Vector2 leg = next - current;
+            float turn = Vector2.SignedAngle(current - previous, leg);
+            text.Append($"\n  {i}: ({current.x:F1}, {current.y:F1}), turn {turn:F0}°, to {(i + 1) % Count}: {leg.magnitude:F1}");
+
+            if (Physics2D.CircleCast(current, PathClearance, leg.normalized, obstacles, hits, leg.magnitude) > 0)
+                text.Append($", passes within {PathClearance} of {hits[0].collider.name}");
+        }
+
+        return text.ToString();
     }
 
     private bool TryFindSpot(float baseAngle, System.Random random, out Vector2 spot)
