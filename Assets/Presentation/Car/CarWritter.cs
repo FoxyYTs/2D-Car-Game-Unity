@@ -57,7 +57,7 @@ public class CarWritter : MonoBehaviour
 
     private Location LocationFrom(Vector3 position, Quaternion rotation)
     {
-        return new(position.x / METER_TO_PIXEL, position.y / METER_TO_PIXEL, rotation.z + 90);
+        return new(position.x / METER_TO_PIXEL, position.y / METER_TO_PIXEL, rotation.eulerAngles.z + 90);
     }
 
     private Quaternion RotationFrom(Location next)
