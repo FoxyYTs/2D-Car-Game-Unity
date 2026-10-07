@@ -148,6 +148,21 @@ namespace Assets.Tests.EditMode
         }
 
         [Test]
+        public void NextGeneration_PlacesElitesFirstFromBestToWorst()
+        {
+            // El entrenador compara el fitness de cada élite con el que traía, así que depende de este orden.
+            var algorithm = Create(new GeneticSettings { PopulationSize = 6, EliteCount = 3, MutationRate = 1f });
+            var population = algorithm.CreatePopulation(4);
+            var fitness = new[] { 1f, 9f, 3f, 7f, 0f, 2f };
+
+            var next = algorithm.NextGeneration(population, fitness);
+
+            CollectionAssert.AreEqual(population[1], next[0]);
+            CollectionAssert.AreEqual(population[3], next[1]);
+            CollectionAssert.AreEqual(population[2], next[2]);
+        }
+
+        [Test]
         public void NextGeneration_DoesNotModifyCurrentPopulation()
         {
             var algorithm = Create(new GeneticSettings { PopulationSize = 8, MutationRate = 1f });
