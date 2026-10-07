@@ -21,8 +21,8 @@ public class CarWritter : MonoBehaviour
 
     private readonly float WHEEL_BASE_IN_METERS = 1F;
     private const float METER_TO_PIXEL = 0.7F;
-    // The map uses order 0 at the same depth; without this the car may be drawn behind it.
-    private const int SORTING_ORDER_ABOVE_MAP = 1;
+    // The map uses order 0 at the same depth and the checkpoint markers 1; without this the car may be drawn behind them.
+    private const int SORTING_ORDER_ABOVE_MAP = 2;
 
     void Awake()
     {
