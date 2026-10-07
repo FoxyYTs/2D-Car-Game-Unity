@@ -1,24 +1,31 @@
 ﻿using Assets.Logic.Game;
+using System;
 using UnityEngine;
 
 public class CarCollisionReader : MonoBehaviour
 {
-    public Collisions Collisions;
+    public Collisions Collisions = new();
     private CarWritter carWritter;
+
+    // Versus rules by default; assign another handler right after Instantiate (before Start) to override it.
+    public Action<CarCollisionReader> CrashHandler { get; set; }
+
+    void Awake()
+    {
+        carWritter = GetComponent<CarWritter>();
+    }
 
     void Start()
     {
-        Collisions = new();
-
-        carWritter = GetComponent<CarWritter>();
-
-        GameGoal.RegisterCollidable(carWritter.Name, Collisions);
+        if (CrashHandler is null)
+        {
+            CrashHandler = EndVersusGame;
+            GameGoal.RegisterCollidable(carWritter.Name, Collisions);
+        }
     }
 
     private void OnCollisionEnter2D(Collision2D collision)
     {
-        var gameController = GameObject.Find("Main Camera").gameObject.GetComponent<GameController>();
-
         if (collision.collider.gameObject.tag == collision.otherCollider.gameObject.tag)
         {
             if (collision.collider.GetType() == typeof(BoxCollider2D) && collision.otherCollider.GetType() == typeof(CircleCollider2D))
@@ -33,6 +40,13 @@ public class CarCollisionReader : MonoBehaviour
         }
         else
             Collisions.OntoStatic = true;
+
+        CrashHandler(this);
+    }
+
+    private void EndVersusGame(CarCollisionReader car)
+    {
+        var gameController = GameObject.Find("Main Camera").gameObject.GetComponent<GameController>();
 
         GameGoal.EvaluateCollisions(Collisions, carWritter.Name);
         carWritter.Explode();
