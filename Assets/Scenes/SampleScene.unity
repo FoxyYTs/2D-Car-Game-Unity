@@ -1249,6 +1249,8 @@ GameObject:
   - component: {fileID: 408406356}
   - component: {fileID: 408406355}
   - component: {fileID: 408406364}
+  - component: {fileID: 1539572182}
+  - component: {fileID: 1549565454}
   m_Layer: 0
   m_Name: CarB
   m_TagString: Player
@@ -3970,6 +3972,8 @@ GameObject:
   - component: {fileID: 1139816851}
   - component: {fileID: 1139816859}
   - component: {fileID: 1139816862}
+  - component: {fileID: 1127904006}
+  - component: {fileID: 1343043868}
   m_Layer: 0
   m_Name: CarA
   m_TagString: Player
@@ -7746,3 +7750,55 @@ SceneRoots:
   - {fileID: 1422290662}
   - {fileID: 1796690319}
   - {fileID: 1448989535}
+--- !u!114 &1127904006
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1139816850}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 748c1f05a2e44bc6aa9c7da841a3a9fe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &1343043868
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1139816850}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f1223cbc2584291a56372c53ef9a689, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  BrainFile: best-brain.json
+  TargetDistanceScale: 50
+--- !u!114 &1539572182
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 408406354}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 748c1f05a2e44bc6aa9c7da841a3a9fe, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!114 &1549565454
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 408406354}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f1223cbc2584291a56372c53ef9a689, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  BrainFile: best-brain.json
+  TargetDistanceScale: 50
