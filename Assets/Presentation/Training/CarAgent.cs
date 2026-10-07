@@ -10,11 +10,15 @@ public class CarAgent : MonoBehaviour, IInputSource
 {
     // The network outputs throttle and steering in [-1, 1]; beyond this dead zone they press a key.
     private const float OUTPUT_THRESHOLD = 0.3f;
-    private const int EXTRA_INPUTS = 2;
+    // Speed, steering, and the angle and distance to the next checkpoint.
+    private const int EXTRA_INPUTS = 4;
     private static readonly Color DEAD_COLOR = new(0.4f, 0.4f, 0.4f, 0.5f);
 
     [Tooltip("Seconds without reaching the next checkpoint before the agent is eliminated.")]
     [Min(0.1f)] public float StallTimeout = 5;
+
+    [Tooltip("Distance to the next checkpoint is divided by this (about the arena width) to fit in [0, 1].")]
+    [Min(1)] public float TargetDistanceScale = 50;
 
     public bool Alive { get; private set; }
     public int CheckpointsReached { get; private set; }
@@ -22,7 +26,7 @@ public class CarAgent : MonoBehaviour, IInputSource
     // Checkpoints reached in order, plus how close it got to the next one (0 to 1).
     public float Fitness => Alive ? CheckpointsReached + Progress() : finalFitness;
 
-    // Sensor readings, speed and steering angle.
+    // Sensor readings, speed, steering angle, and angle and distance to the next checkpoint.
     public int InputCount => GetComponent<CarSensors>().Count + EXTRA_INPUTS;
 
     private CarWritter writer;
@@ -117,6 +121,11 @@ public class CarAgent : MonoBehaviour, IInputSource
         var chassis = writer.Location.Chassis;
         observation[readings.Count] = chassis.Speed / CarPowerTrain.MaxSpeed;
         observation[readings.Count + 1] = chassis.SteeringAngle / CarChassis.MAX_STEERING_ANGLE;
+
+        // Positive angle = target to the left, the same sign as steering left.
+        Vector2 toTarget = circuit[CheckpointsReached].transform.position - transform.position;
+        observation[readings.Count + 2] = Vector2.SignedAngle(transform.up, toTarget) / 180f;
+        observation[readings.Count + 3] = Mathf.Clamp01(toTarget.magnitude / TargetDistanceScale);
 
         var output = brain.Feedforward(observation);
         float throttle = output[0];
