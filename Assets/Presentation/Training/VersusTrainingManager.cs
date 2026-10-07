@@ -8,7 +8,8 @@ using UnityEngine;
 // Evolves brains for the versus game by self-play. Each generation every agent plays one match from each side
 // against different opponents; all matches run at once on the same arena. Agents of different matches ignore
 // each other: contact inside a match is detected geometrically, with the game's bumper-versus-body rules.
-// Every BenchmarkEvery generations the champion plays a fixed reference brain, the objective measure of progress.
+// Every BenchmarkEvery generations the champion plays the champion of the previous benchmark (the first time, the
+// seed brain): whether it beats, and above all rams, its predecessor is the objective measure of progress.
 public class VersusTrainingManager : MonoBehaviour
 {
     public enum SelectionMethod
@@ -50,7 +51,7 @@ public class VersusTrainingManager : MonoBehaviour
     [Tooltip("Start from copies of a checkpoint-trained brain instead of random weights.")]
     public bool StartFromBrain = true;
     [Tooltip("File in Application.persistentDataPath. Empty: the most recent brain-seed*.json. " +
-             "It is also the fixed reference opponent of the benchmark.")]
+             "It is also the opponent of the first benchmark.")]
     public string SeedBrainFile = "";
     [Tooltip("Hidden neurons when starting from random weights.")]
     [Min(1)] public int HiddenNeurons = 8;
@@ -94,7 +95,10 @@ public class VersusTrainingManager : MonoBehaviour
     private int seed;
     private float[][] population;
     private int[] layers;
+    // Opponent of the next benchmark: the previous benchmark's champion. A fixed reference stopped measuring anything
+    // once agents learned to dodge the mountain: it kept crashing into it and lost every match without being rammed.
     private float[] referenceGenome;
+    private string referenceName;
 
     private readonly List<Match> matches = new();
     private readonly Dictionary<DuelAgent, int> genomeOf = new();
@@ -132,6 +136,7 @@ public class VersusTrainingManager : MonoBehaviour
         var seedBrain = LoadSeedBrain();
         layers = seedBrain?.Layers ?? new[] { AgentTemplate.InputCount, HiddenNeurons, CarPilot.OUTPUTS };
         referenceGenome = seedBrain?.Genome;
+        referenceName = "the seed brain";
 
         ISelection selection = Selection == SelectionMethod.Roulette
                                    ? new RouletteSelection()
@@ -419,10 +424,17 @@ public class VersusTrainingManager : MonoBehaviour
         crashesInto.Clear();
 
         pendingFitness = fitness;
-        if (Generation % BenchmarkEvery == 0 && referenceGenome != null)
+        if (Generation % BenchmarkEvery != 0)
+            NextGeneration();
+        else if (referenceGenome != null)
             StartBenchmark(population[champion], fitness[champion]);
         else
+        {
+            // Started from random weights: nobody to play yet, this champion becomes the first opponent.
+            Save(population[champion], fitness[champion]);
+            BecomeReference(population[champion]);
             NextGeneration();
+        }
     }
 
     private void NextGeneration()
@@ -481,13 +493,24 @@ public class VersusTrainingManager : MonoBehaviour
         benchmark[key] = benchmark.GetValueOrDefault(key) + 1;
     }
 
+    // Rams first: beating an opponent that crashes on its own says little about fighting.
+    private static readonly string[] BENCHMARK_ORDER =
+        { "won ramming", "tie", "won, reference crashed", "time limit", "lost, rammed", "lost, crashed" };
+
     private void EndBenchmark()
     {
-        lastBenchmark = string.Join(", ", benchmark.OrderByDescending(pair => pair.Value).Select(pair => $"{pair.Key} {pair.Value}"));
-        Debug.Log($"Benchmark after generation {Generation}, champion vs reference: {lastBenchmark}");
+        lastBenchmark = string.Join(", ", BENCHMARK_ORDER.Select(key => $"{key} {benchmark.GetValueOrDefault(key)}"));
+        Debug.Log($"Benchmark after generation {Generation}, champion vs {referenceName}: {lastBenchmark}");
         endings.Clear();
         crashesInto.Clear();
         Save(championGenome, championFitness);
+        BecomeReference(championGenome);
+    }
+
+    private void BecomeReference(float[] genome)
+    {
+        referenceGenome = genome.ToArray();
+        referenceName = $"the champion of generation {Generation}";
     }
 
     private void Save(float[] genome, float fitness)
