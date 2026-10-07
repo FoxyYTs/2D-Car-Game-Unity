@@ -15,6 +15,11 @@ public class AIDriver : MonoBehaviour, IInputSource
     [Tooltip("Must be the value the brain was trained with.")]
     [Min(1)] public float TargetDistanceScale = 50;
 
+    [Tooltip("Random shift of the starting position. The simulation is deterministic: without it, every AI match " +
+             "would be an exact replay of the previous one.")]
+    [Min(0)] public float StartJitter = 1;
+    [Range(0, 45)] public float HeadingJitter = 10;
+
     public bool Driving { get; private set; }
 
     private CarWritter writer;
@@ -30,6 +35,8 @@ public class AIDriver : MonoBehaviour, IInputSource
         pilot = LoadPilot();
         started = true;
 
+        if (pilot != null)
+            JitterStart();
         TakeControl();
 
         if (FindAnyObjectByType<VersusExhibition>() == null)
@@ -56,6 +63,13 @@ public class AIDriver : MonoBehaviour, IInputSource
     }
 
     public IReadOnlyList<InputValue> Read() => pilot.Drive(opponent.position);
+
+    private void JitterStart()
+    {
+        Vector3 offset = Random.insideUnitCircle * StartJitter;
+        var heading = Quaternion.Euler(0, 0, Random.Range(-HeadingJitter, HeadingJitter));
+        writer.ResetTo(transform.position + offset, transform.rotation * heading);
+    }
 
     private void TakeControl()
     {
