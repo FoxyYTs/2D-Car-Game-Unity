@@ -11,6 +11,7 @@ namespace Assets.Logic.Game
 
         public static void RegisterCollidable(string id, Collisions collisions)
         {
+            collidableObjects.RemoveAll(p => p.id == id);
             collidableObjects.Add((id, collisions));
         }
 
