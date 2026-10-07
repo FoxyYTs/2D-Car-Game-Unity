@@ -31,6 +31,9 @@ public class AIDriver : MonoBehaviour, IInputSource
         started = true;
 
         TakeControl();
+
+        if (FindAnyObjectByType<VersusExhibition>() == null)
+            new GameObject(nameof(VersusExhibition)).AddComponent<VersusExhibition>();
     }
 
     void OnEnable()
