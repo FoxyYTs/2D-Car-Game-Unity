@@ -61,6 +61,13 @@ public class CarAgent : MonoBehaviour, IInputSource
         writer.FixedStep = true;
         writer.Location.InputSource = this;
         collisionReader.CrashHandler = _ => Die();
+
+        // Ignore other agents inside the raycast itself: filtering them afterwards let a crowd of agents
+        // fill the hit buffer and hide the obstacle behind them, so a genome's score depended on the others.
+        if (gameObject.layer == 0)
+            Debug.LogWarning($"{name} is on the Default layer, together with the obstacles: its sensors will still see other agents.");
+        else
+            sensors.ObstacleMask &= ~(1 << gameObject.layer);
     }
 
     public void Begin(float[] genome)
