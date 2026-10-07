@@ -178,7 +178,8 @@ public class TrainingManager : MonoBehaviour
 
     private void LogCircuit()
     {
-        Debug.Log($"Circuit {CircuitNumber} starts at generation {Generation}:{Circuit.Describe()}");
+        string direction = Circuit.Clockwise ? "clockwise" : "counterclockwise";
+        Debug.Log($"Circuit {CircuitNumber} ({direction}) starts at generation {Generation}:{Circuit.Describe()}");
     }
 
     // How the generation ended, and where the best agent stopped: tells crashes apart from agents stuck near a checkpoint.
