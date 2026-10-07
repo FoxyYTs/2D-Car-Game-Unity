@@ -19,12 +19,15 @@ public class CarWritter : MonoBehaviour
 
     private readonly float WHEEL_BASE_IN_METERS = 1F;
     private const float METER_TO_PIXEL = 0.7F;
+    // The map uses order 0 at the same depth; without this the car may be drawn behind it.
+    private const int SORTING_ORDER_ABOVE_MAP = 1;
 
     void Awake()
     {
         Location = new(WHEEL_BASE_IN_METERS, LocationFrom(transform.position, transform.rotation), new KeyboardInputSource(Id));
 
         car = GetComponent<CarWritter>();
+        GetComponent<SpriteRenderer>().sortingOrder = SORTING_ORDER_ABOVE_MAP;
         if (engineSound != null)
             engineSound.Play();
     }
