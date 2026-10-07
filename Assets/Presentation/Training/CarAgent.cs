@@ -1,5 +1,4 @@
 using Assets.Logic.AI;
-using Assets.Logic.CarLocation;
 using EngineAbstractor;
 using System.Collections.Generic;
 using UnityEngine;
@@ -15,10 +14,6 @@ public class CarAgent : MonoBehaviour, IInputSource
         Stalled
     }
 
-    // The network outputs throttle and steering in [-1, 1]; beyond this dead zone they press a key.
-    private const float OUTPUT_THRESHOLD = 0.3f;
-    // Speed, steering, and the angle and distance to the next checkpoint.
-    private const int EXTRA_INPUTS = 4;
     private static readonly Color DEAD_COLOR = new(0.4f, 0.4f, 0.4f, 0.5f);
 
     [Tooltip("Seconds without reaching the next checkpoint before the agent is eliminated.")]
@@ -35,8 +30,7 @@ public class CarAgent : MonoBehaviour, IInputSource
     // Checkpoints reached in order, plus how close it got to the next one (0 to 1).
     public float Fitness => Alive ? CheckpointsReached + Progress() : finalFitness;
 
-    // Sensor readings, speed, steering angle, and angle and distance to the next checkpoint.
-    public int InputCount => GetComponent<CarSensors>().Count + EXTRA_INPUTS;
+    public int InputCount => CarPilot.InputCount(GetComponent<CarSensors>());
 
     private CarWritter writer;
     private CarSensors sensors;
@@ -45,13 +39,11 @@ public class CarAgent : MonoBehaviour, IInputSource
     private SpriteRenderer sprite;
     private Color aliveColor;
 
-    private NeuralNetwork brain;
+    private CarPilot pilot;
     private CheckpointCircuit circuit;
     private Vector3 startPosition;
     private Quaternion startRotation;
 
-    private float[] observation;
-    private readonly List<InputValue> inputs = new();
     private float stallTime;
     private float finalFitness;
 
@@ -66,8 +58,7 @@ public class CarAgent : MonoBehaviour, IInputSource
         aliveColor = sprite.color;
 
         this.circuit = circuit;
-        this.brain = brain;
-        observation = new float[InputCount];
+        pilot = new CarPilot(writer, sensors, brain, TargetDistanceScale);
         startPosition = transform.position;
         startRotation = transform.rotation;
 
@@ -85,7 +76,7 @@ public class CarAgent : MonoBehaviour, IInputSource
 
     public void Begin(float[] genome)
     {
-        brain.SetParameters(genome);
+        pilot.Brain.SetParameters(genome);
 
         writer.ResetTo(startPosition, startRotation);
         body.linearVelocity = Vector2.zero;
@@ -122,38 +113,7 @@ public class CarAgent : MonoBehaviour, IInputSource
         stallTime = 0;
     }
 
-    public IReadOnlyList<InputValue> Read()
-    {
-        var readings = sensors.Sense();
-        for (int i = 0; i < readings.Count; i++)
-            observation[i] = readings[i];
-
-        var chassis = writer.Location.Chassis;
-        observation[readings.Count] = chassis.Speed / CarPowerTrain.MaxSpeed;
-        observation[readings.Count + 1] = chassis.SteeringAngle / CarChassis.MAX_STEERING_ANGLE;
-
-        // Positive angle = target to the left, the same sign as steering left.
-        Vector2 toTarget = circuit[CheckpointsReached].transform.position - transform.position;
-        observation[readings.Count + 2] = Vector2.SignedAngle(transform.up, toTarget) / 180f;
-        observation[readings.Count + 3] = Mathf.Clamp01(toTarget.magnitude / TargetDistanceScale);
-
-        var output = brain.Feedforward(observation);
-        float throttle = output[0];
-        float steering = output[1];
-
-        inputs.Clear();
-        if (throttle > OUTPUT_THRESHOLD)
-            inputs.Add(InputValue.Foward);
-        else if (throttle < -OUTPUT_THRESHOLD)
-            inputs.Add(InputValue.Backward);
-
-        if (steering > OUTPUT_THRESHOLD)
-            inputs.Add(InputValue.Left);
-        else if (steering < -OUTPUT_THRESHOLD)
-            inputs.Add(InputValue.Right);
-
-        return inputs;
-    }
+    public IReadOnlyList<InputValue> Read() => pilot.Drive(circuit[CheckpointsReached].transform.position);
 
     private void Die(Outcome outcome)
     {
