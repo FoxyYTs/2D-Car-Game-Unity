@@ -1,5 +1,6 @@
 using Assets.Logic.CarLocation;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 public class CarWritter : MonoBehaviour
 {
@@ -12,8 +13,9 @@ public class CarWritter : MonoBehaviour
 
     public Sprite ExplosionSprite;
 
-    [Tooltip("Advance the simulation in FixedUpdate with a constant step (AI training), instead of once per frame.")]
-    public bool FixedStep = false;
+    [Tooltip("Someone else advances the car by calling Step (AI training), instead of once per frame.")]
+    [FormerlySerializedAs("FixedStep")]
+    public bool ExternalStep = false;
 
     private CarWritter car;
 
@@ -34,7 +36,7 @@ public class CarWritter : MonoBehaviour
 
     void Update()
     {
-        if (!FixedStep)
+        if (!ExternalStep)
             Step(Time.deltaTime);
 
         if (engineSound == null)
@@ -48,13 +50,7 @@ public class CarWritter : MonoBehaviour
         engineSound.pitch = car.Location.PowerTrain.RPM / 3000;
     }
 
-    void FixedUpdate()
-    {
-        if (FixedStep)
-            Step(Time.fixedDeltaTime);
-    }
-
-    private void Step(float deltaTime)
+    public void Step(float deltaTime)
     {
         var next = Location.NextPosition(deltaTime);
 

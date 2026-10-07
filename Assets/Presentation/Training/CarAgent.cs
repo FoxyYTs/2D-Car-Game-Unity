@@ -58,9 +58,16 @@ public class CarAgent : MonoBehaviour, IInputSource
         startPosition = transform.position;
         startRotation = transform.rotation;
 
-        writer.FixedStep = true;
+        writer.ExternalStep = true;
         writer.Location.InputSource = this;
         collisionReader.CrashHandler = _ => Die();
+
+        // Ignore other agents inside the raycast itself: filtering them afterwards let a crowd of agents
+        // fill the hit buffer and hide the obstacle behind them, so a genome's score depended on the others.
+        if (gameObject.layer == 0)
+            Debug.LogWarning($"{name} is on the Default layer, together with the obstacles: its sensors will still see other agents.");
+        else
+            sensors.ObstacleMask &= ~(1 << gameObject.layer);
     }
 
     public void Begin(float[] genome)
@@ -77,7 +84,19 @@ public class CarAgent : MonoBehaviour, IInputSource
         CheckpointsReached = 0;
         stallTime = 0;
         Alive = true;
-        writer.enabled = true;
+    }
+
+    // Advances this agent one simulation step. The TrainingManager steps every agent in a fixed order.
+    public void Tick(float deltaTime)
+    {
+        if (!Alive)
+            return;
+
+        writer.Step(deltaTime);
+
+        stallTime += deltaTime;
+        if (stallTime > StallTimeout)
+            Die();
     }
 
     public void Reach(Checkpoint checkpoint)
@@ -117,16 +136,6 @@ public class CarAgent : MonoBehaviour, IInputSource
         return inputs;
     }
 
-    void FixedUpdate()
-    {
-        if (!Alive)
-            return;
-
-        stallTime += Time.fixedDeltaTime;
-        if (stallTime > StallTimeout)
-            Die();
-    }
-
     private void Die()
     {
         if (!Alive)
@@ -135,7 +144,6 @@ public class CarAgent : MonoBehaviour, IInputSource
         finalFitness = CheckpointsReached + Progress();
         Alive = false;
 
-        writer.enabled = false;
         body.simulated = false;
         sprite.color = DEAD_COLOR;
     }

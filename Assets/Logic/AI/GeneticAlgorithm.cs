@@ -51,7 +51,7 @@ namespace Assets.Logic.AI
         }
 
         /// <summary>
-        /// 1. Copia los EliteCount genomas de mayor fitness sin mutarlos.
+        /// 1. Copia los EliteCount genomas de mayor fitness sin mutarlos, al inicio y de mejor a peor.
         /// 2. Completa hasta PopulationSize con hijos: elige dos padres con la selección,
         ///    los cruza y muta al hijo.
         /// No modifica <paramref name="population"/>: los genomas devueltos son arreglos nuevos.

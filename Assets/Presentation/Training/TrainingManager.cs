@@ -46,6 +46,8 @@ public class TrainingManager : MonoBehaviour
     private float[][] population;
     private int[] layers;
     private float elapsed;
+    // Fitness the elites had when they were selected; a deterministic simulation must reproduce it exactly.
+    private float[] expectedEliteFitness = Array.Empty<float>();
 
     private string SavePath => Path.Combine(Application.persistentDataPath, "best-brain.json");
 
@@ -86,9 +88,16 @@ public class TrainingManager : MonoBehaviour
         Time.timeScale = SimulationSpeed;
     }
 
+    // The manager is the only one advancing the simulation: every agent takes exactly one step, always in the
+    // same order, and a new generation starts between complete steps. Otherwise the same genome could start one
+    // step earlier or later depending on Unity's FixedUpdate order and on whether its agent had died.
     void FixedUpdate()
     {
-        elapsed += Time.fixedDeltaTime;
+        float deltaTime = Time.fixedDeltaTime;
+        foreach (var agent in agents)
+            agent.Tick(deltaTime);
+
+        elapsed += deltaTime;
 
         if (elapsed >= GenerationSeconds || agents.All(agent => !agent.Alive))
             EndGeneration();
@@ -121,7 +130,7 @@ public class TrainingManager : MonoBehaviour
         int best = Array.IndexOf(fitness, fitness.Max());
 
         LastGenerationBest = fitness[best];
-        Debug.Log($"Generation {Generation}: best {LastGenerationBest:F2}, average {fitness.Average():F2}");
+        Debug.Log($"Generation {Generation}: best {LastGenerationBest:F2}, average {fitness.Average():F2}{EliteReplay(fitness)}");
 
         if (LastGenerationBest > BestFitness)
         {
@@ -129,9 +138,20 @@ public class TrainingManager : MonoBehaviour
             Save(population[best], LastGenerationBest);
         }
 
+        expectedEliteFitness = fitness.OrderByDescending(value => value).Take(genetics.Settings.EliteCount).ToArray();
         population = genetics.NextGeneration(population, fitness);
         Generation++;
         StartGeneration();
+    }
+
+    // The elites open the population (see GeneticAlgorithm.NextGeneration), so they are the first agents.
+    private string EliteReplay(float[] fitness)
+    {
+        if (expectedEliteFitness.Length == 0)
+            return "";
+
+        var replays = expectedEliteFitness.Select((expected, i) => $"{expected:F2}->{fitness[i]:F2}");
+        return $", elites {string.Join(" ", replays)}";
     }
 
     private void Save(float[] genome, float fitness)
