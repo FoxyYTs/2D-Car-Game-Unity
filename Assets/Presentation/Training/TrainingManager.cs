@@ -86,9 +86,16 @@ public class TrainingManager : MonoBehaviour
         Time.timeScale = SimulationSpeed;
     }
 
+    // The manager is the only one advancing the simulation: every agent takes exactly one step, always in the
+    // same order, and a new generation starts between complete steps. Otherwise the same genome could start one
+    // step earlier or later depending on Unity's FixedUpdate order and on whether its agent had died.
     void FixedUpdate()
     {
-        elapsed += Time.fixedDeltaTime;
+        float deltaTime = Time.fixedDeltaTime;
+        foreach (var agent in agents)
+            agent.Tick(deltaTime);
+
+        elapsed += deltaTime;
 
         if (elapsed >= GenerationSeconds || agents.All(agent => !agent.Alive))
             EndGeneration();

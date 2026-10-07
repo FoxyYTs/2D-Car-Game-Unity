@@ -65,7 +65,7 @@ public static class TrainingSceneBuilder
 
         var writer = car.GetComponent<CarWritter>();
         writer.engineSound = null;
-        writer.FixedStep = true;
+        writer.ExternalStep = true;
         foreach (var audio in car.GetComponents<AudioSource>())
             Object.DestroyImmediate(audio);
 
