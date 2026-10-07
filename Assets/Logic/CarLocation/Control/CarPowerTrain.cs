@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using UnityEngine;
 
 namespace Assets.Logic.CarLocation
 {
@@ -47,16 +46,16 @@ namespace Assets.Logic.CarLocation
 
         private float idlePauseInMs = 0;
 
-        public float Accelerate()
+        public float Accelerate(float deltaTime)
         {
-            if (IsInNeutralPause())
+            if (IsInNeutralPause(deltaTime))
                 return 0;
 
             if (currentGear == NEUTRAL_GEAR)
                 GearUp();
             else if (currentGear < NEUTRAL_GEAR)
             {
-                RPM -= gears[currentGear].RPMVariation * BREAK_FACTOR * Time.deltaTime;
+                RPM -= gears[currentGear].RPMVariation * BREAK_FACTOR * deltaTime;
                 if (RPM < IDLE_RPM)
                 { 
                     PutInNeutralPause();
@@ -65,29 +64,29 @@ namespace Assets.Logic.CarLocation
             }
             else
             {
-                RPM += gears[currentGear].RPMVariation * Time.deltaTime;
+                RPM += gears[currentGear].RPMVariation * deltaTime;
                 if (RPM > MAX_RPM)
                     GearUp();
             }
             return SpeedFromTransmition;
         }
 
-        public float Break()
+        public float Break(float deltaTime)
         {
-            if (IsInNeutralPause())
+            if (IsInNeutralPause(deltaTime))
                 return 0;
 
             if (currentGear == NEUTRAL_GEAR)
                 GearDown();
             else if (currentGear < NEUTRAL_GEAR) 
             {
-                RPM += gears[currentGear].RPMVariation * Time.deltaTime;
+                RPM += gears[currentGear].RPMVariation * deltaTime;
                 if (RPM > MAX_RPM)
                     RPM = MAX_RPM;
             }
             else 
             {
-                RPM -= gears[currentGear].RPMVariation * BREAK_FACTOR  * Time.deltaTime;
+                RPM -= gears[currentGear].RPMVariation * BREAK_FACTOR  * deltaTime;
                 if (currentGear > NEUTRAL_GEAR + 1 && RPM < MIN_RPM)
                     GearDown();
                 else if (currentGear == NEUTRAL_GEAR + 1 && RPM < IDLE_RPM)
@@ -99,11 +98,11 @@ namespace Assets.Logic.CarLocation
             return SpeedFromTransmition;
         }
 
-        private bool IsInNeutralPause()
+        private bool IsInNeutralPause(float deltaTime)
         {
             if (idlePauseInMs > 0)
             {
-                idlePauseInMs -= Time.deltaTime * 1000;
+                idlePauseInMs -= deltaTime * 1000;
                 return true;
             }
             else 
@@ -116,14 +115,14 @@ namespace Assets.Logic.CarLocation
             idlePauseInMs = IDLE_PAUSE_IN_MS;
         }
 
-        public float Idle()
+        public float Idle(float deltaTime)
         {
-            if (IsInNeutralPause())
+            if (IsInNeutralPause(deltaTime))
                 return 0;
 
             if (currentGear < NEUTRAL_GEAR)
             {
-                RPM -= gears[currentGear].RPMVariation * IDLE_FACTOR * Time.deltaTime;
+                RPM -= gears[currentGear].RPMVariation * IDLE_FACTOR * deltaTime;
                 if (RPM <= IDLE_RPM)
                 {
                     RPM = IDLE_RPM;
@@ -132,7 +131,7 @@ namespace Assets.Logic.CarLocation
             }
             else if (currentGear > NEUTRAL_GEAR)
             {
-                RPM -= gears[currentGear].RPMVariation * IDLE_FACTOR * Time.deltaTime;
+                RPM -= gears[currentGear].RPMVariation * IDLE_FACTOR * deltaTime;
                 if (currentGear > NEUTRAL_GEAR + 1 && RPM < MIN_RPM)
                     GearDown();
                 else if (currentGear == NEUTRAL_GEAR + 1 && RPM < IDLE_RPM)

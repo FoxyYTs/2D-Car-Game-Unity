@@ -19,7 +19,7 @@ public class CarWritter : MonoBehaviour
 
     void Awake()
     {
-        Location = new(Id, WHEEL_BASE_IN_METERS, LocationFrom(transform.position, transform.rotation));
+        Location = new(WHEEL_BASE_IN_METERS, LocationFrom(transform.position, transform.rotation), new KeyboardInputSource(Id));
 
         car = GetComponent<CarWritter>();
         engineSound.Play();
@@ -27,7 +27,7 @@ public class CarWritter : MonoBehaviour
 
     void Update()
     {
-        var next = Location.NextPosition();
+        var next = Location.NextPosition(Time.deltaTime);
 
         if (next is not null)
         {
@@ -57,7 +57,7 @@ public class CarWritter : MonoBehaviour
 
     private Location LocationFrom(Vector3 position, Quaternion rotation)
     {
-        return new(position.x / METER_TO_PIXEL, position.y / METER_TO_PIXEL, rotation.z + 90);
+        return new(position.x / METER_TO_PIXEL, position.y / METER_TO_PIXEL, rotation.eulerAngles.z + 90);
     }
 
     private Quaternion RotationFrom(Location next)
