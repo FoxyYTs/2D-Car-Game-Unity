@@ -37,12 +37,20 @@ public class TrainingManager : MonoBehaviour
     [Min(1)] public float GenerationSeconds = 60;
     [Range(1, 10)] public float SimulationSpeed = 1;
 
+    [Header("Circuit")]
+    [Tooltip("Rearrange the circuit into a new random ring every this many generations, so agents must follow the " +
+             "checkpoints instead of memorizing a route. 0 keeps the circuit of the scene.")]
+    [Min(0)] public int CircuitChangeEvery = 10;
+
     public int Generation { get; private set; }
-    public float BestFitness { get; private set; }
+    public int CircuitNumber { get; private set; }
+    // Fitness on different circuits is not comparable, so the record restarts with every circuit.
+    public float BestOnCircuit { get; private set; }
     public float LastGenerationBest { get; private set; }
 
     private CarAgent[] agents;
     private GeneticAlgorithm genetics;
+    private System.Random random;
     private float[][] population;
     private int[] layers;
     private float elapsed;
@@ -63,7 +71,7 @@ public class TrainingManager : MonoBehaviour
         AgentTemplate.gameObject.SetActive(false);
         layers = new[] { AgentTemplate.InputCount, HiddenNeurons, OUTPUTS };
 
-        var random = Seed == 0 ? new System.Random() : new System.Random(Seed);
+        random = Seed == 0 ? new System.Random() : new System.Random(Seed);
         ISelection selection = Selection == SelectionMethod.Roulette
                                    ? new RouletteSelection()
                                    : new TournamentSelection(TournamentSize);
@@ -80,6 +88,7 @@ public class TrainingManager : MonoBehaviour
         population = genetics.CreatePopulation(NeuralNetwork.CountParameters(layers));
 
         Generation = 1;
+        CircuitNumber = 1;
         StartGeneration();
     }
 
@@ -130,18 +139,33 @@ public class TrainingManager : MonoBehaviour
         int best = Array.IndexOf(fitness, fitness.Max());
 
         LastGenerationBest = fitness[best];
-        Debug.Log($"Generation {Generation}: best {LastGenerationBest:F2}, average {fitness.Average():F2}{EliteReplay(fitness)}");
+        Debug.Log($"Generation {Generation} (circuit {CircuitNumber}): best {LastGenerationBest:F2}, " +
+                  $"average {fitness.Average():F2}{EliteReplay(fitness)}");
 
-        if (LastGenerationBest > BestFitness)
+        if (LastGenerationBest > BestOnCircuit)
         {
-            BestFitness = LastGenerationBest;
+            BestOnCircuit = LastGenerationBest;
             Save(population[best], LastGenerationBest);
         }
 
         expectedEliteFitness = fitness.OrderByDescending(value => value).Take(genetics.Settings.EliteCount).ToArray();
         population = genetics.NextGeneration(population, fitness);
         Generation++;
+
+        if (CircuitChangeEvery > 0 && (Generation - 1) % CircuitChangeEvery == 0)
+            ChangeCircuit();
+
         StartGeneration();
+    }
+
+    private void ChangeCircuit()
+    {
+        Circuit.Rearrange(random);
+        CircuitNumber++;
+        BestOnCircuit = 0;
+        // The elites were scored on the previous circuit: their fitness is not expected to repeat.
+        expectedEliteFitness = Array.Empty<float>();
+        Debug.Log($"Circuit {CircuitNumber} starts at generation {Generation}");
     }
 
     // The elites open the population (see GeneticAlgorithm.NextGeneration), so they are the first agents.
@@ -159,6 +183,7 @@ public class TrainingManager : MonoBehaviour
         var brain = new SavedBrain
         {
             Generation = Generation,
+            Circuit = CircuitNumber,
             Fitness = fitness,
             Layers = layers,
             Genome = genome
@@ -171,12 +196,15 @@ public class TrainingManager : MonoBehaviour
         if (agents is null)
             return;
 
-        GUILayout.BeginArea(new Rect(10, 10, 260, 170), GUI.skin.box);
+        GUILayout.BeginArea(new Rect(10, 10, 260, 195), GUI.skin.box);
         GUILayout.Label($"Generation {Generation}");
+        GUILayout.Label(CircuitChangeEvery > 0
+                            ? $"Circuit {CircuitNumber} (changes every {CircuitChangeEvery})"
+                            : $"Circuit {CircuitNumber} (fixed)");
         GUILayout.Label($"Alive {agents.Count(agent => agent.Alive)} / {agents.Length}");
         GUILayout.Label($"Time {elapsed:F1} / {GenerationSeconds:F0} s");
         GUILayout.Label($"Best of last generation {LastGenerationBest:F2}");
-        GUILayout.Label($"Best ever {BestFitness:F2}");
+        GUILayout.Label($"Best on this circuit {BestOnCircuit:F2}");
         GUILayout.Label($"Speed x{SimulationSpeed:F1}");
         SimulationSpeed = GUILayout.HorizontalSlider(SimulationSpeed, 1, 10);
         GUILayout.EndArea();
@@ -186,6 +214,7 @@ public class TrainingManager : MonoBehaviour
     public class SavedBrain
     {
         public int Generation;
+        public int Circuit;
         public float Fitness;
         public int[] Layers;
         public float[] Genome;
