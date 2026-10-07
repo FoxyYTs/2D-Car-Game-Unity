@@ -13,8 +13,6 @@ public class TrainingManager : MonoBehaviour
         Roulette
     }
 
-    private const int OUTPUTS = 2;
-
     [Header("Scene")]
     [Tooltip("Inactive car that every agent is cloned from; its pose is the starting line.")]
     public CarAgent AgentTemplate;
@@ -69,7 +67,7 @@ public class TrainingManager : MonoBehaviour
         }
 
         AgentTemplate.gameObject.SetActive(false);
-        layers = new[] { AgentTemplate.InputCount, HiddenNeurons, OUTPUTS };
+        layers = new[] { AgentTemplate.InputCount, HiddenNeurons, CarPilot.OUTPUTS };
 
         int seed = Seed != 0 ? Seed : Math.Max(1, Environment.TickCount & int.MaxValue);
         random = new System.Random(seed);
