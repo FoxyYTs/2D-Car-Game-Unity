@@ -23,7 +23,7 @@ public class TrainingManager : MonoBehaviour
     [Header("Population")]
     [Min(1)] public int PopulationSize = 30;
     [Min(1)] public int HiddenNeurons = 8;
-    [Tooltip("0 picks a different seed on every run.")]
+    [Tooltip("0 picks a different seed on every run; the one used is logged, so a run can be repeated.")]
     public int Seed = 0;
 
     [Header("Evolution")]
@@ -71,7 +71,9 @@ public class TrainingManager : MonoBehaviour
         AgentTemplate.gameObject.SetActive(false);
         layers = new[] { AgentTemplate.InputCount, HiddenNeurons, OUTPUTS };
 
-        random = Seed == 0 ? new System.Random() : new System.Random(Seed);
+        int seed = Seed != 0 ? Seed : Math.Max(1, Environment.TickCount & int.MaxValue);
+        random = new System.Random(seed);
+        Debug.Log($"Training seed {seed} (set it as Seed to repeat this run)");
         ISelection selection = Selection == SelectionMethod.Roulette
                                    ? new RouletteSelection()
                                    : new TournamentSelection(TournamentSize);
@@ -89,6 +91,7 @@ public class TrainingManager : MonoBehaviour
 
         Generation = 1;
         CircuitNumber = 1;
+        LogCircuit();
         StartGeneration();
     }
 
@@ -140,7 +143,7 @@ public class TrainingManager : MonoBehaviour
 
         LastGenerationBest = fitness[best];
         Debug.Log($"Generation {Generation} (circuit {CircuitNumber}): best {LastGenerationBest:F2}, " +
-                  $"average {fitness.Average():F2}{EliteReplay(fitness)}");
+                  $"average {fitness.Average():F2}{EliteReplay(fitness)}{Outcomes(best)}");
 
         if (LastGenerationBest > BestOnCircuit)
         {
@@ -165,7 +168,32 @@ public class TrainingManager : MonoBehaviour
         BestOnCircuit = 0;
         // The elites were scored on the previous circuit: their fitness is not expected to repeat.
         expectedEliteFitness = Array.Empty<float>();
-        Debug.Log($"Circuit {CircuitNumber} starts at generation {Generation}");
+        LogCircuit();
+    }
+
+    private void LogCircuit()
+    {
+        Debug.Log($"Circuit {CircuitNumber} starts at generation {Generation}:{Circuit.Describe()}");
+    }
+
+    // How the generation ended, and where the best agent stopped: tells crashes apart from agents stuck near a checkpoint.
+    private string Outcomes(int best)
+    {
+        int crashed = agents.Count(agent => agent.Result == CarAgent.Outcome.Crashed);
+        int stalled = agents.Count(agent => agent.Result == CarAgent.Outcome.Stalled);
+        int running = agents.Count(agent => agent.Result == CarAgent.Outcome.Running);
+
+        var champion = agents[best];
+        Vector2 position = champion.transform.position;
+        string ending = champion.Result switch
+        {
+            CarAgent.Outcome.Crashed => "crashed",
+            CarAgent.Outcome.Stalled => "stalled",
+            _ => "ran out of time"
+        };
+
+        return $"; crashed {crashed}, stalled {stalled}, out of time {running}; " +
+               $"best {ending} at ({position.x:F1}, {position.y:F1}) heading to checkpoint {champion.NextCheckpointIndex}";
     }
 
     // The elites open the population (see GeneticAlgorithm.NextGeneration), so they are the first agents.

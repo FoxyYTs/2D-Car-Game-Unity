@@ -8,6 +8,13 @@ using UnityEngine;
 [RequireComponent(typeof(CarWritter), typeof(CarSensors), typeof(CarCollisionReader))]
 public class CarAgent : MonoBehaviour, IInputSource
 {
+    public enum Outcome
+    {
+        Running,
+        Crashed,
+        Stalled
+    }
+
     // The network outputs throttle and steering in [-1, 1]; beyond this dead zone they press a key.
     private const float OUTPUT_THRESHOLD = 0.3f;
     // Speed, steering, and the angle and distance to the next checkpoint.
@@ -21,7 +28,9 @@ public class CarAgent : MonoBehaviour, IInputSource
     [Min(1)] public float TargetDistanceScale = 50;
 
     public bool Alive { get; private set; }
+    public Outcome Result { get; private set; }
     public int CheckpointsReached { get; private set; }
+    public int NextCheckpointIndex => CheckpointsReached % circuit.Count;
 
     // Checkpoints reached in order, plus how close it got to the next one (0 to 1).
     public float Fitness => Alive ? CheckpointsReached + Progress() : finalFitness;
@@ -64,7 +73,7 @@ public class CarAgent : MonoBehaviour, IInputSource
 
         writer.ExternalStep = true;
         writer.Location.InputSource = this;
-        collisionReader.CrashHandler = _ => Die();
+        collisionReader.CrashHandler = _ => Die(Outcome.Crashed);
 
         // Ignore other agents inside the raycast itself: filtering them afterwards let a crowd of agents
         // fill the hit buffer and hide the obstacle behind them, so a genome's score depended on the others.
@@ -88,6 +97,7 @@ public class CarAgent : MonoBehaviour, IInputSource
         CheckpointsReached = 0;
         stallTime = 0;
         Alive = true;
+        Result = Outcome.Running;
     }
 
     // Advances this agent one simulation step. The TrainingManager steps every agent in a fixed order.
@@ -100,7 +110,7 @@ public class CarAgent : MonoBehaviour, IInputSource
 
         stallTime += deltaTime;
         if (stallTime > StallTimeout)
-            Die();
+            Die(Outcome.Stalled);
     }
 
     public void Reach(Checkpoint checkpoint)
@@ -145,13 +155,14 @@ public class CarAgent : MonoBehaviour, IInputSource
         return inputs;
     }
 
-    private void Die()
+    private void Die(Outcome outcome)
     {
         if (!Alive)
             return;
 
         finalFitness = CheckpointsReached + Progress();
         Alive = false;
+        Result = outcome;
 
         body.simulated = false;
         sprite.color = DEAD_COLOR;

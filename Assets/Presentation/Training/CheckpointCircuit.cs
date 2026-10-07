@@ -1,4 +1,7 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
 using UnityEngine;
 #if UNITY_EDITOR
 using UnityEditor;
@@ -27,6 +30,8 @@ public class CheckpointCircuit : MonoBehaviour
     [Min(0)] public float Clearance = 1.5f;
     [Tooltip("Layers that count as obstacles when placing checkpoints (not the agents).")]
     public LayerMask ObstacleMask = 1 << 0;
+    [Tooltip("Describe reports how close each leg passes to every obstacle within this distance.")]
+    [Min(0)] public float MaxReportedClearance = 3;
     public Vector2 ArenaMin = new(-24.5f, -6.5f);
     public Vector2 ArenaMax = new(25, 10.5f);
 
@@ -66,6 +71,66 @@ public class CheckpointCircuit : MonoBehaviour
         }
 
         RefreshMarkers();
+    }
+
+    // One line per checkpoint: position, turn angle there (positive = left) and the leg to the next one, with the
+    // clearance between that straight leg and every obstacle closer than MaxReportedClearance. Agents aim at the next
+    // checkpoint, so a small clearance means they must learn to steer around the obstacle (0.87 blocked a whole
+    // population for 9 generations; 1.2 did not).
+    public string Describe()
+    {
+        var text = new StringBuilder();
+
+        for (int i = 0; i < Count; i++)
+        {
+            Vector2 previous = this[i + Count - 1].transform.position;
+            Vector2 current = this[i].transform.position;
+            Vector2 next = this[i + 1].transform.position;
+
+            Vector2 leg = next - current;
+            float turn = Vector2.SignedAngle(current - previous, leg);
+            text.Append($"\n  {i}: ({current.x:F1}, {current.y:F1}), turn {turn:F0}°, to {(i + 1) % Count}: {leg.magnitude:F1}");
+
+            var clearances = Clearances(current, next);
+            if (clearances.Count > 0)
+                text.Append(", clearance " + string.Join(", ", clearances.Select(pair => $"{pair.Key} {pair.Value:F2}")));
+        }
+
+        return text.ToString();
+    }
+
+    // Distance from the straight leg to each nearby obstacle, found by binary search on the radius of a circle cast.
+    private SortedDictionary<string, float> Clearances(Vector2 from, Vector2 to)
+    {
+        const int SEARCH_STEPS = 12;
+        var clearances = new SortedDictionary<string, float>();
+
+        foreach (var obstacle in ObstaclesAlong(from, to, MaxReportedClearance))
+        {
+            float touching = MaxReportedClearance, free = 0;
+            for (int step = 0; step < SEARCH_STEPS; step++)
+            {
+                float radius = (touching + free) / 2;
+                if (ObstaclesAlong(from, to, radius).Contains(obstacle))
+                    touching = radius;
+                else
+                    free = radius;
+            }
+            clearances[obstacle.name] = free;
+        }
+
+        return clearances;
+    }
+
+    private HashSet<Collider2D> ObstaclesAlong(Vector2 from, Vector2 to, float radius)
+    {
+        var obstacles = new ContactFilter2D { useTriggers = false };
+        obstacles.SetLayerMask(ObstacleMask);
+        var hits = new RaycastHit2D[16];
+
+        Vector2 leg = to - from;
+        int count = Physics2D.CircleCast(from, radius, leg.normalized, obstacles, hits, leg.magnitude);
+        return new HashSet<Collider2D>(hits.Take(count).Select(hit => hit.collider));
     }
 
     private bool TryFindSpot(float baseAngle, System.Random random, out Vector2 spot)
