@@ -1,5 +1,4 @@
 ﻿using System;
-using UnityEngine;
 
 namespace Assets.Logic.CarLocation
 {
@@ -38,17 +37,14 @@ namespace Assets.Logic.CarLocation
                                                                   / CarPowerTrain.MaxSpeed 
                                                                   * (100 - MIN_EFFECTIVE_STEERING_PERCENTAGE)))) / 100;
 
-        public float RotationAngle
+        public float RotationAngle(float deltaTime)
         {
-            get
-            {
-                float displacement = Speed * Time.deltaTime;
+            float displacement = Speed * deltaTime;
 
-                float X = (float) (wheelBase + Math.Cos(UnderSteeredAngle * Math.PI / 180) * displacement);
-                float Y = (float) (Math.Sin(UnderSteeredAngle * Math.PI / 180) * displacement);
+            float X = (float) (wheelBase + Math.Cos(UnderSteeredAngle * Math.PI / 180) * displacement);
+            float Y = (float) (Math.Sin(UnderSteeredAngle * Math.PI / 180) * displacement);
 
-                return (float) (Math.Atan2(Y, X) / Math.PI * 180);
-            }
+            return (float) (Math.Atan2(Y, X) / Math.PI * 180);
         }
 
         public CarChassis(float wheelBase)

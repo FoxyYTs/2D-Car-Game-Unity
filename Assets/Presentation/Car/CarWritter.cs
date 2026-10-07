@@ -19,7 +19,7 @@ public class CarWritter : MonoBehaviour
 
     void Awake()
     {
-        Location = new(Id, WHEEL_BASE_IN_METERS, LocationFrom(transform.position, transform.rotation));
+        Location = new(WHEEL_BASE_IN_METERS, LocationFrom(transform.position, transform.rotation), new KeyboardInputSource(Id));
 
         car = GetComponent<CarWritter>();
         engineSound.Play();
@@ -27,7 +27,7 @@ public class CarWritter : MonoBehaviour
 
     void Update()
     {
-        var next = Location.NextPosition();
+        var next = Location.NextPosition(Time.deltaTime);
 
         if (next is not null)
         {
