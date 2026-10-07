@@ -856,7 +856,7 @@ MonoBehaviour:
   Name: green
   engineSound: {fileID: 0}
   ExplosionSprite: {fileID: 21300000, guid: 0e0ef94913dd5a744be5ea7ec9c94bc5, type: 3}
-  FixedStep: 1
+  ExternalStep: 1
 --- !u!114 &1139816854
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1065,6 +1065,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CarAgent
   StallTimeout: 5
+  TargetDistanceScale: 50
 --- !u!114 &1139816862
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2103,6 +2104,7 @@ MonoBehaviour:
   MutationSigma: 0.3
   GenerationSeconds: 60
   SimulationSpeed: 1
+  CircuitChangeEvery: 10
 --- !u!4 &1623890846
 Transform:
   m_ObjectHideFlags: 0
@@ -2283,6 +2285,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 94a35ba578d24f5da39175bf8cd261db, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CheckpointCircuit
+  RingCenter: {x: -0.3, y: 2.1}
+  RadiusXRange: {x: 8, y: 20}
+  RadiusYRange: {x: 6.5, y: 8}
+  FirstAngle: 150
+  AngleJitter: 15
+  Clearance: 1.5
+  ObstacleMask:
+    serializedVersion: 2
+    m_Bits: 1
+  MaxReportedClearance: 3
+  ArenaMin: {x: -24.5, y: -6.5}
+  ArenaMax: {x: 25, y: 10.5}
+  ShowInGame: 1
 --- !u!4 &1774315058
 Transform:
   m_ObjectHideFlags: 0
