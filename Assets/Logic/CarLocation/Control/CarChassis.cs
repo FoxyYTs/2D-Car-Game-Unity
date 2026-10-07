@@ -6,7 +6,7 @@ namespace Assets.Logic.CarLocation
     {
         private const int MIN_WHEEL_BASE = 1;
         private const int MAX_WHEEL_BASE = 10;
-        private const int MAX_STEERING_ANGLE = 30;
+        public const int MAX_STEERING_ANGLE = 30;
 
         private const int MIN_EFFECTIVE_STEERING_PERCENTAGE = 15;
 

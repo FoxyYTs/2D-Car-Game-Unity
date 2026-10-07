@@ -12,6 +12,9 @@ public class CarWritter : MonoBehaviour
 
     public Sprite ExplosionSprite;
 
+    [Tooltip("Advance the simulation in FixedUpdate with a constant step (AI training), instead of once per frame.")]
+    public bool FixedStep = false;
+
     private CarWritter car;
 
     private readonly float WHEEL_BASE_IN_METERS = 1F;
@@ -22,18 +25,17 @@ public class CarWritter : MonoBehaviour
         Location = new(WHEEL_BASE_IN_METERS, LocationFrom(transform.position, transform.rotation), new KeyboardInputSource(Id));
 
         car = GetComponent<CarWritter>();
-        engineSound.Play();
+        if (engineSound != null)
+            engineSound.Play();
     }
 
     void Update()
     {
-        var next = Location.NextPosition(Time.deltaTime);
+        if (!FixedStep)
+            Step(Time.deltaTime);
 
-        if (next is not null)
-        {
-            transform.position = PositionFrom(next);
-            transform.rotation = RotationFrom(next);
-        }
+        if (engineSound == null)
+            return;
 
         if (Name == "blue")
             engineSound.panStereo = 1.0f;
@@ -41,6 +43,30 @@ public class CarWritter : MonoBehaviour
             engineSound.panStereo = -1.0f;
 
         engineSound.pitch = car.Location.PowerTrain.RPM / 3000;
+    }
+
+    void FixedUpdate()
+    {
+        if (FixedStep)
+            Step(Time.fixedDeltaTime);
+    }
+
+    private void Step(float deltaTime)
+    {
+        var next = Location.NextPosition(deltaTime);
+
+        if (next is not null)
+        {
+            transform.position = PositionFrom(next);
+            transform.rotation = RotationFrom(next);
+        }
+    }
+
+    // Puts the car back at rest on the given pose, keeping its input source.
+    public void ResetTo(Vector3 position, Quaternion rotation)
+    {
+        transform.SetPositionAndRotation(position, rotation);
+        Location = new(WHEEL_BASE_IN_METERS, LocationFrom(position, rotation), Location.InputSource);
     }
 
     public void Explode()
@@ -51,7 +77,8 @@ public class CarWritter : MonoBehaviour
         {
             GetComponent<SpriteRenderer>().sprite = ExplosionSprite;
 
-            engineSound.Stop();
+            if (engineSound != null)
+                engineSound.Stop();
         }
     }
 
