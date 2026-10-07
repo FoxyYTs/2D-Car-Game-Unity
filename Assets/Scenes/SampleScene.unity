@@ -7774,7 +7774,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6f1223cbc2584291a56372c53ef9a689, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  BrainFile: best-brain.json
+  BrainFile: 
   TargetDistanceScale: 50
 --- !u!114 &1539572182
 MonoBehaviour:
@@ -7800,5 +7800,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6f1223cbc2584291a56372c53ef9a689, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  BrainFile: best-brain.json
+  BrainFile: 
   TargetDistanceScale: 50

@@ -55,7 +55,10 @@ public class TrainingManager : MonoBehaviour
     // Fitness the elites had when they were selected; a deterministic simulation must reproduce it exactly.
     private float[] expectedEliteFitness = Array.Empty<float>();
 
-    private string SavePath => Path.Combine(Application.persistentDataPath, "best-brain.json");
+    // Every run saves to its own file, so a new run, however short, never overwrites a trained brain.
+    public const string BRAIN_FILE_PREFIX = "brain-seed";
+    private int seed;
+    private string SavePath => Path.Combine(Application.persistentDataPath, $"{BRAIN_FILE_PREFIX}{seed}.json");
 
     void Start()
     {
@@ -69,9 +72,9 @@ public class TrainingManager : MonoBehaviour
         AgentTemplate.gameObject.SetActive(false);
         layers = new[] { AgentTemplate.InputCount, HiddenNeurons, CarPilot.OUTPUTS };
 
-        int seed = Seed != 0 ? Seed : Math.Max(1, Environment.TickCount & int.MaxValue);
+        seed = Seed != 0 ? Seed : Math.Max(1, Environment.TickCount & int.MaxValue);
         random = new System.Random(seed);
-        Debug.Log($"Training seed {seed} (set it as Seed to repeat this run)");
+        Debug.Log($"Training seed {seed} (set it as Seed to repeat this run); brains are saved to {SavePath}");
         ISelection selection = Selection == SelectionMethod.Roulette
                                    ? new RouletteSelection()
                                    : new TournamentSelection(TournamentSize);
@@ -143,11 +146,15 @@ public class TrainingManager : MonoBehaviour
         Debug.Log($"Generation {Generation} (circuit {CircuitNumber}): best {LastGenerationBest:F2}, " +
                   $"average {fitness.Average():F2}{EliteReplay(fitness)}{Outcomes(best)}");
 
-        if (LastGenerationBest > BestOnCircuit)
-        {
+        bool newRecord = LastGenerationBest > BestOnCircuit;
+        if (newRecord)
             BestOnCircuit = LastGenerationBest;
+
+        // With a changing circuit, scores on different circuits are not comparable: the brain worth keeping is the
+        // champion that survived a whole circuit. With a fixed circuit, every record is a better brain.
+        bool circuitEnds = CircuitChangeEvery > 0 && Generation % CircuitChangeEvery == 0;
+        if (circuitEnds || (CircuitChangeEvery == 0 && newRecord))
             Save(population[best], LastGenerationBest);
-        }
 
         expectedEliteFitness = fitness.OrderByDescending(value => value).Take(genetics.Settings.EliteCount).ToArray();
         population = genetics.NextGeneration(population, fitness);
@@ -171,7 +178,8 @@ public class TrainingManager : MonoBehaviour
 
     private void LogCircuit()
     {
-        Debug.Log($"Circuit {CircuitNumber} starts at generation {Generation}:{Circuit.Describe()}");
+        string direction = Circuit.Clockwise ? "clockwise" : "counterclockwise";
+        Debug.Log($"Circuit {CircuitNumber} ({direction}) starts at generation {Generation}:{Circuit.Describe()}");
     }
 
     // How the generation ended, and where the best agent stopped: tells crashes apart from agents stuck near a checkpoint.
@@ -208,6 +216,7 @@ public class TrainingManager : MonoBehaviour
     {
         var brain = new SavedBrain
         {
+            Seed = seed,
             Generation = Generation,
             Circuit = CircuitNumber,
             Fitness = fitness,
@@ -215,6 +224,7 @@ public class TrainingManager : MonoBehaviour
             Genome = genome
         };
         File.WriteAllText(SavePath, JsonUtility.ToJson(brain, true));
+        Debug.Log($"Saved the champion of circuit {CircuitNumber} (fitness {fitness:F2}) to {SavePath}");
     }
 
     void OnGUI()
@@ -239,6 +249,7 @@ public class TrainingManager : MonoBehaviour
     [Serializable]
     public class SavedBrain
     {
+        public int Seed;
         public int Generation;
         public int Circuit;
         public float Fitness;

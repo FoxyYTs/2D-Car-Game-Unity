@@ -23,7 +23,7 @@ public class CheckpointCircuit : MonoBehaviour
     public Vector2 RadiusXRange = new(8, 20);
     [Tooltip("Vertical distance from the center, sampled per checkpoint.")]
     public Vector2 RadiusYRange = new(6.5f, 8);
-    [Tooltip("Angle of the first checkpoint around the center; the rest follow clockwise, evenly spaced.")]
+    [Tooltip("Angle of the first checkpoint around the center; the rest follow evenly spaced, in a random direction.")]
     public float FirstAngle = 150;
     [Range(0, 30)] public float AngleJitter = 15;
     [Tooltip("Checkpoint centers stay at least this far from any obstacle.")]
@@ -37,6 +37,9 @@ public class CheckpointCircuit : MonoBehaviour
 
     [Header("Game view")]
     public bool ShowInGame = true;
+
+    // The circuit of the scene; each rearranged ring randomly picks its direction.
+    public bool Clockwise { get; private set; } = true;
 
     private Checkpoint[] checkpoints;
     private LineRenderer path;
@@ -57,9 +60,11 @@ public class CheckpointCircuit : MonoBehaviour
 
     // Moves every checkpoint to a new spot of a random ring. Spots that overlap an obstacle are re-sampled;
     // if none fits, the checkpoint keeps its place.
+    // The direction is random: with clockwise rings only, agents learned to turn right and never to turn left.
     public void Rearrange(System.Random random)
     {
-        float step = 360f / Count;
+        Clockwise = random.NextDouble() < 0.5;
+        float step = (Clockwise ? 360f : -360f) / Count;
 
         for (int i = 0; i < Count; i++)
         {

@@ -10,10 +10,15 @@ using UnityEngine;
 [RequireComponent(typeof(CarWritter), typeof(CarSensors))]
 public class AIDriver : MonoBehaviour, IInputSource
 {
-    [Tooltip("File in Application.persistentDataPath, saved by the TrainingManager.")]
-    public string BrainFile = "best-brain.json";
+    [Tooltip("File in Application.persistentDataPath saved by the TrainingManager. Empty: the most recent brain-seed*.json.")]
+    public string BrainFile = "";
     [Tooltip("Must be the value the brain was trained with.")]
     [Min(1)] public float TargetDistanceScale = 50;
+
+    [Tooltip("Random shift of the starting position. The simulation is deterministic: without it, every AI match " +
+             "would be an exact replay of the previous one.")]
+    [Min(0)] public float StartJitter = 1;
+    [Range(0, 45)] public float HeadingJitter = 10;
 
     public bool Driving { get; private set; }
 
@@ -30,6 +35,8 @@ public class AIDriver : MonoBehaviour, IInputSource
         pilot = LoadPilot();
         started = true;
 
+        if (pilot != null)
+            JitterStart();
         TakeControl();
 
         if (FindAnyObjectByType<VersusExhibition>() == null)
@@ -57,6 +64,13 @@ public class AIDriver : MonoBehaviour, IInputSource
 
     public IReadOnlyList<InputValue> Read() => pilot.Drive(opponent.position);
 
+    private void JitterStart()
+    {
+        Vector3 offset = Random.insideUnitCircle * StartJitter;
+        var heading = Quaternion.Euler(0, 0, Random.Range(-HeadingJitter, HeadingJitter));
+        writer.ResetTo(transform.position + offset, transform.rotation * heading);
+    }
+
     private void TakeControl()
     {
         if (pilot == null || opponent == null)
@@ -74,14 +88,26 @@ public class AIDriver : MonoBehaviour, IInputSource
         Driving = false;
     }
 
+    private string BrainPath()
+    {
+        if (!string.IsNullOrEmpty(BrainFile))
+            return Path.Combine(Application.persistentDataPath, BrainFile);
+
+        return new DirectoryInfo(Application.persistentDataPath)
+                   .GetFiles($"{TrainingManager.BRAIN_FILE_PREFIX}*.json")
+                   .OrderByDescending(file => file.LastWriteTimeUtc)
+                   .FirstOrDefault()?.FullName;
+    }
+
     private CarPilot LoadPilot()
     {
-        string path = Path.Combine(Application.persistentDataPath, BrainFile);
-        if (!File.Exists(path))
+        string path = BrainPath();
+        if (path is null || !File.Exists(path))
         {
-            Debug.LogError($"{name}: there is no brain at {path}. Train one in TrainingScene first.");
+            Debug.LogError($"{name}: there is no brain in {Application.persistentDataPath}. Train one in TrainingScene first.");
             return null;
         }
+        string file = Path.GetFileName(path);
 
         var saved = JsonUtility.FromJson<TrainingManager.SavedBrain>(File.ReadAllText(path));
         var sensors = GetComponent<CarSensors>();
@@ -90,14 +116,14 @@ public class AIDriver : MonoBehaviour, IInputSource
 
         if (layers.Length < 2 || layers[0] != inputs || layers[layers.Length - 1] != CarPilot.OUTPUTS)
         {
-            Debug.LogError($"{name}: {BrainFile} has layers [{string.Join(", ", layers)}], " +
+            Debug.LogError($"{name}: {file} has layers [{string.Join(", ", layers)}], " +
                            $"but this car needs {inputs} inputs and {CarPilot.OUTPUTS} outputs.");
             return null;
         }
 
         var brain = new NeuralNetwork(layers);
         brain.SetParameters(saved.Genome);
-        Debug.Log($"{name} is driven by {BrainFile} (generation {saved.Generation}, fitness {saved.Fitness:F2})");
+        Debug.Log($"{name} is driven by {file} (generation {saved.Generation}, circuit {saved.Circuit}, fitness {saved.Fitness:F2})");
 
         return new CarPilot(writer, sensors, brain, TargetDistanceScale);
     }
