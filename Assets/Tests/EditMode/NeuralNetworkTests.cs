@@ -118,5 +118,40 @@ namespace Assets.Tests.EditMode
 
             Assert.AreEqual(before, network.Feedforward(new[] { 1f, 2f })[0], TOLERANCE);
         }
+
+        [Test]
+        public void LastActivations_HoldEveryLayerOfTheLastFeedforward()
+        {
+            // 1 → 1 → 1: [w1, b1, w2, b2]
+            var network = new NeuralNetwork(1, 1, 1);
+            network.SetParameters(new[] { 2f, 0f, 3f, 0.1f });
+            Assert.AreEqual(0, network.LastActivations.Count);
+
+            var outputs = network.Feedforward(new[] { 0.5f });
+
+            Assert.AreEqual(3, network.LastActivations.Count);
+            Assert.AreEqual(0.5f, network.LastActivations[0][0], TOLERANCE);
+            Assert.AreEqual((float)Math.Tanh(2 * 0.5), network.LastActivations[1][0], TOLERANCE);
+            CollectionAssert.AreEqual(outputs, network.LastActivations[2]);
+        }
+
+        [Test]
+        public void WeightAndBias_ReadTheGenomeLayout()
+        {
+            // 2 → 2 → 1: [w00, w10, b0, w01, w11, b1 | v0, v1, c]
+            var network = new NeuralNetwork(2, 2, 1);
+            network.SetParameters(new[] { 1f, 2f, 3f, 4f, 5f, 6f, 7f, 8f, 9f });
+
+            Assert.AreEqual(1f, network.Weight(0, 0, 0));
+            Assert.AreEqual(2f, network.Weight(0, 1, 0));
+            Assert.AreEqual(3f, network.Bias(0, 0));
+            Assert.AreEqual(4f, network.Weight(0, 0, 1));
+            Assert.AreEqual(5f, network.Weight(0, 1, 1));
+            Assert.AreEqual(6f, network.Bias(0, 1));
+            Assert.AreEqual(7f, network.Weight(1, 0, 0));
+            Assert.AreEqual(8f, network.Weight(1, 1, 0));
+            Assert.AreEqual(9f, network.Bias(1, 0));
+            Assert.Throws<ArgumentOutOfRangeException>(() => network.Weight(2, 0, 0));
+        }
     }
 }
