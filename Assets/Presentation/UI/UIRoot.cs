@@ -13,7 +13,7 @@ public static class UIRoot
         var settings = ScriptableObject.CreateInstance<PanelSettings>();
         settings.themeStyleSheet = Resources.Load<ThemeStyleSheet>("UI/Theme");
         settings.scaleMode = PanelScaleMode.ScaleWithScreenSize;
-        settings.referenceResolution = new Vector2Int(1920, 1080);
+        settings.referenceResolution = new Vector2Int(1280, 720);
         settings.match = 0.5f;
 
         // Inactive while it is set up: the document attaches to its panel when it is enabled.
