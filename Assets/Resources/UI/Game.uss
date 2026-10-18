@@ -102,3 +102,128 @@
 .legend-average {
     color: #22c55e;
 }
+
+.button--big {
+    font-size: 16px;
+    padding: 8px 22px;
+    margin: 6px 0 0 8px;
+}
+
+.hud {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 340px;
+}
+
+.hud Label {
+    margin: 1px 0;
+}
+
+/* Fields on the dark panels. */
+.game-root .unity-base-field__label {
+    color: var(--text);
+    min-width: 210px;
+}
+
+.game-root .unity-base-field__input,
+.game-root .unity-base-popup-field__input {
+    background-color: var(--bg2);
+    border-color: var(--border);
+    color: var(--text);
+}
+
+.game-root .unity-base-field {
+    margin: 6px 0;
+}
+
+.menu-screen {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--bg);
+    align-items: center;
+    justify-content: center;
+}
+
+.menu {
+    width: 980px;
+    max-width: 96%;
+    padding: 24px 28px;
+}
+
+.menu-title {
+    font-size: 30px;
+    -unity-font-style: bold;
+    color: var(--text);
+    margin-bottom: 4px;
+}
+
+.menu-columns {
+    flex-direction: row;
+    margin-top: 18px;
+}
+
+.menu-modes {
+    width: 40%;
+    margin-right: 22px;
+}
+
+.menu-options {
+    flex-grow: 1;
+    min-height: 360px;
+}
+
+.mode-button {
+    background-color: var(--bg2);
+    border-color: var(--border);
+    border-width: 1px;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin: 0 0 8px 0;
+    align-items: flex-start;
+}
+
+.mode-button:hover {
+    border-color: var(--accent);
+}
+
+.mode-button--selected {
+    border-color: var(--accent);
+    border-width: 2px;
+    background-color: rgba(124, 58, 237, 0.25);
+}
+
+.mode-title {
+    font-size: 16px;
+    -unity-font-style: bold;
+    color: var(--text);
+}
+
+.menu-note {
+    white-space: normal;
+    margin-top: 10px;
+}
+
+.pause-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.55);
+    align-items: center;
+    justify-content: center;
+}
+
+.pause-box {
+    width: 320px;
+    padding: 20px 24px;
+    align-items: stretch;
+}
+
+.pause-box .button--big {
+    margin: 8px 0 0 0;
+}

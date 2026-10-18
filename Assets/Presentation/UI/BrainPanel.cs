@@ -55,7 +55,7 @@ public class BrainPanel : MonoBehaviour
         autoButton = new Button(() => { auto = true; Search(); }) { text = "Auto" };
         autoButton.AddToClassList("button");
         header.Add(autoButton);
-        var next = new Button(ShowNext) { text = "Siguiente ▸" };
+        var next = new Button(ShowNext) { text = "Siguiente »" };
         next.AddToClassList("button");
         header.Add(next);
         panel.Add(header);
@@ -99,16 +99,21 @@ public class BrainPanel : MonoBehaviour
 
     void Update()
     {
-        if (Input.GetKeyDown(TOGGLE_KEY))
+        if (Input.GetKeyDown(TOGGLE_KEY) && !GameSession.InMenu)
             SetVisible(!visible);
-        if (!visible)
-            return;
-
-        if (Input.GetMouseButtonDown(0) && !UIRoot.PointerOverUI())
-            SelectClickedCar();
 
         if ((searchIn -= Time.unscaledDeltaTime) <= 0 || !IsShowable(shown))
             Search();
+
+        if (!visible)
+        {
+            hint.text = cars.Length > 0 ? "Tab: ver la red neuronal · Esc: pausa" : "Esc: pausa";
+            hint.style.display = GameSession.InMenu ? DisplayStyle.None : DisplayStyle.Flex;
+            return;
+        }
+
+        if (Input.GetMouseButtonDown(0) && !UIRoot.PointerOverUI())
+            SelectClickedCar();
 
         Refresh();
     }
@@ -117,7 +122,6 @@ public class BrainPanel : MonoBehaviour
     {
         visible = value;
         panel.style.display = value ? DisplayStyle.Flex : DisplayStyle.None;
-        hint.style.display = value ? DisplayStyle.None : DisplayStyle.Flex;
     }
 
     // Destroyed cars (scene reloads between matches) compare equal to null only as Unity objects.
