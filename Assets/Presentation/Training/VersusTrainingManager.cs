@@ -10,7 +10,7 @@ using UnityEngine;
 // each other: contact inside a match is detected geometrically, with the game's bumper-versus-body rules.
 // Every BenchmarkEvery generations the champion plays the champion of the previous benchmark (the first time, the
 // seed brain): whether it beats, and above all rams, its predecessor is the objective measure of progress.
-public class VersusTrainingManager : MonoBehaviour
+public class VersusTrainingManager : MonoBehaviour, IHudSource
 {
     public enum SelectionMethod
     {
@@ -162,7 +162,8 @@ public class VersusTrainingManager : MonoBehaviour
 
     void Update()
     {
-        Time.timeScale = SimulationSpeed;
+        if (!PauseMenu.Paused)
+            Time.timeScale = SimulationSpeed;
     }
 
     void OnDisable()
@@ -530,19 +531,16 @@ public class VersusTrainingManager : MonoBehaviour
         Debug.Log($"Saved the champion of generation {Generation} (fitness {fitness:F2}) to {SavePath}");
     }
 
-    void OnGUI()
-    {
-        if (agents is null)
-            return;
+    public bool ShowHud => agents != null;
+    public string HudTitle => $"Generación {Generation} · {(benchmarking ? "prueba contra la referencia" : $"ronda {round + 1} / {ROUNDS}")}";
+    public bool HasSpeed => true;
+    public float Speed { get => SimulationSpeed; set => SimulationSpeed = value; }
 
-        GUILayout.BeginArea(new Rect(10, 10, 300, 175), GUI.skin.box);
-        GUILayout.Label($"Generation {Generation}, {(benchmarking ? "benchmark vs reference" : $"round {round + 1} / {ROUNDS}")}");
-        GUILayout.Label($"Matches over {matches.Count(match => match.Over)} / {matches.Count}");
-        GUILayout.Label($"Time {elapsed:F1} / {RoundSeconds:F0} s");
-        GUILayout.Label($"Last generation: {lastGeneration}");
-        GUILayout.Label($"Last benchmark: {(lastBenchmark == "" ? "-" : lastBenchmark)}");
-        GUILayout.Label($"Speed x{SimulationSpeed:F1}");
-        SimulationSpeed = GUILayout.HorizontalSlider(SimulationSpeed, 1, 10);
-        GUILayout.EndArea();
-    }
+    public IEnumerable<string> HudLines => new[]
+    {
+        $"Partidas terminadas {matches.Count(match => match.Over)} / {matches.Count}",
+        $"Tiempo {elapsed:F1} / {RoundSeconds:F0} s",
+        $"Generación anterior: {(lastGeneration == "" ? "-" : lastGeneration)}",
+        $"Última prueba: {(lastBenchmark == "" ? "-" : lastBenchmark)}"
+    };
 }

@@ -6,7 +6,7 @@ using System.Linq;
 using UnityEngine;
 
 // Runs generations of CarAgents on a circuit and evolves their brains with a genetic algorithm.
-public class TrainingManager : MonoBehaviour
+public class TrainingManager : MonoBehaviour, IHudSource
 {
     public enum SelectionMethod
     {
@@ -101,7 +101,8 @@ public class TrainingManager : MonoBehaviour
 
     void Update()
     {
-        Time.timeScale = SimulationSpeed;
+        if (!PauseMenu.Paused)
+            Time.timeScale = SimulationSpeed;
     }
 
     // The manager is the only one advancing the simulation: every agent takes exactly one step, always in the
@@ -231,24 +232,19 @@ public class TrainingManager : MonoBehaviour
         Debug.Log($"Saved the champion of circuit {CircuitNumber} (fitness {fitness:F2}) to {SavePath}");
     }
 
-    void OnGUI()
-    {
-        if (agents is null)
-            return;
+    public bool ShowHud => agents != null;
+    public string HudTitle => $"Generación {Generation}";
+    public bool HasSpeed => true;
+    public float Speed { get => SimulationSpeed; set => SimulationSpeed = value; }
 
-        GUILayout.BeginArea(new Rect(10, 10, 260, 195), GUI.skin.box);
-        GUILayout.Label($"Generation {Generation}");
-        GUILayout.Label(CircuitChangeEvery > 0
-                            ? $"Circuit {CircuitNumber} (changes every {CircuitChangeEvery})"
-                            : $"Circuit {CircuitNumber} (fixed)");
-        GUILayout.Label($"Alive {agents.Count(agent => agent.Alive)} / {agents.Length}");
-        GUILayout.Label($"Time {elapsed:F1} / {GenerationSeconds:F0} s");
-        GUILayout.Label($"Best of last generation {LastGenerationBest:F2}");
-        GUILayout.Label($"Best on this circuit {BestOnCircuit:F2}");
-        GUILayout.Label($"Speed x{SimulationSpeed:F1}");
-        SimulationSpeed = GUILayout.HorizontalSlider(SimulationSpeed, 1, 10);
-        GUILayout.EndArea();
-    }
+    public IEnumerable<string> HudLines => new[]
+    {
+        CircuitChangeEvery > 0 ? $"Circuito {CircuitNumber} (cambia cada {CircuitChangeEvery})" : $"Circuito {CircuitNumber} (fijo)",
+        $"Vivos {agents.Count(agent => agent.Alive)} / {agents.Length}",
+        $"Tiempo {elapsed:F1} / {GenerationSeconds:F0} s",
+        $"Mejor de la generación anterior {LastGenerationBest:F2}",
+        $"Mejor en este circuito {BestOnCircuit:F2}"
+    };
 
     [Serializable]
     public class SavedBrain

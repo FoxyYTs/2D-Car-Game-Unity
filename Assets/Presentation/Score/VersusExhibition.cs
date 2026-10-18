@@ -6,7 +6,7 @@ using UnityEngine.SceneManagement;
 
 // While every car is driven by the AI, matches restart on their own and a scoreboard counts the results.
 // If a human takes a car (its AIDriver disabled), the game goes back to its usual rules.
-public class VersusExhibition : MonoBehaviour
+public class VersusExhibition : MonoBehaviour, IHudSource
 {
     private const float RESTART_DELAY_SECONDS = 3;
     [Tooltip("Matches where nobody crashes end in a draw after this long.")]
@@ -35,6 +35,9 @@ public class VersusExhibition : MonoBehaviour
 
     void Update()
     {
+        if (PauseMenu.Paused)
+            return;
+
         if (restartIn >= 0)
         {
             restartIn -= Time.unscaledDeltaTime;
@@ -110,17 +113,19 @@ public class VersusExhibition : MonoBehaviour
         return $"{cars} | rammed {rams}  crashed {crashes}  ties {ties}  time limit {timeouts}";
     }
 
-    void OnGUI()
-    {
-        if (restartIn < 0 && !AllCarsDrivenByAI())
-            return;
+    public bool ShowHud => restartIn >= 0 || AllCarsDrivenByAI();
+    public string HudTitle => $"IA vs IA · partida {matches + (restartIn >= 0 ? 0 : 1)}";
+    public bool HasSpeed => false;
+    public float Speed { get => 1; set { } }
 
-        var area = new Rect(Screen.width / 2f - 210, 10, 420, restartIn >= 0 ? 75 : 50);
-        GUILayout.BeginArea(area, GUI.skin.box);
-        GUILayout.Label($"AI vs AI — match {matches + (restartIn >= 0 ? 0 : 1)}");
-        GUILayout.Label(Scoreboard());
-        if (restartIn >= 0)
-            GUILayout.Label($"Last: {lastResult}. Next match in {restartIn:F1} s");
-        GUILayout.EndArea();
+    public IEnumerable<string> HudLines
+    {
+        get
+        {
+            yield return string.Join("   ", wins.OrderBy(pair => pair.Key).Select(pair => $"{pair.Key} {pair.Value}"));
+            yield return $"Embestidas {rams} · choques {crashesInto.Values.Sum()} · empates {ties} · por tiempo {timeouts}";
+            if (restartIn >= 0)
+                yield return $"Última: {lastResult}. Siguiente partida en {restartIn:F1} s";
+        }
     }
 }
