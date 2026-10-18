@@ -14,6 +14,8 @@ public class VersusExhibition : MonoBehaviour
 
     // Static, so the scoreboard survives the scene reload between matches.
     private static readonly Dictionary<string, int> wins = new();
+    private static readonly Dictionary<string, int> crashesInto = new();
+    private static int rams;
     private static int ties;
     private static int timeouts;
     private static int matches;
@@ -57,16 +59,27 @@ public class VersusExhibition : MonoBehaviour
         FindObjectsByType<CarWritter>(FindObjectsSortMode.None)
             .All(car => car.TryGetComponent(out AIDriver driver) && driver.enabled && driver.Driving);
 
-    private static string Win(string car)
+    // The game counts a win the same whether the winner rammed the opponent or the opponent crashed into an obstacle.
+    private static string Win(string winner)
     {
-        wins[car] = wins.GetValueOrDefault(car) + 1;
-        return $"{car} won";
+        wins[winner] = wins.GetValueOrDefault(winner) + 1;
+
+        var loser = FindObjectsByType<CarWritter>(FindObjectsSortMode.None).First(car => car.Name != winner);
+        var collisions = loser.GetComponent<CarCollisionReader>().Collisions;
+        if (collisions.OntoStatic)
+        {
+            crashesInto[collisions.Obstacle] = crashesInto.GetValueOrDefault(collisions.Obstacle) + 1;
+            return $"{winner} won, {loser.Name} hit {collisions.Obstacle}";
+        }
+
+        rams++;
+        return $"{winner} won, it rammed {loser.Name}";
     }
 
     private static string Tie()
     {
         ties++;
-        return "tie";
+        return "head-on tie";
     }
 
     private string Timeout()
@@ -80,7 +93,8 @@ public class VersusExhibition : MonoBehaviour
         matches++;
         lastResult = result;
         restartIn = RESTART_DELAY_SECONDS;
-        Debug.Log($"Match {matches}: {result}. {Scoreboard()}");
+        string crashes = string.Join(", ", crashesInto.OrderByDescending(pair => pair.Value).Select(pair => $"{pair.Key} {pair.Value}"));
+        Debug.Log($"Match {matches}: {result}. {Scoreboard()}; crashes into: {(crashes == "" ? "none" : crashes)}");
     }
 
     private static void NextMatch()
@@ -92,7 +106,8 @@ public class VersusExhibition : MonoBehaviour
     private static string Scoreboard()
     {
         var cars = string.Join("  ", wins.OrderBy(pair => pair.Key).Select(pair => $"{pair.Key} {pair.Value}"));
-        return $"{cars}  ties {ties}  time limit {timeouts}";
+        int crashes = crashesInto.Values.Sum();
+        return $"{cars} | rammed {rams}  crashed {crashes}  ties {ties}  time limit {timeouts}";
     }
 
     void OnGUI()
@@ -100,7 +115,7 @@ public class VersusExhibition : MonoBehaviour
         if (restartIn < 0 && !AllCarsDrivenByAI())
             return;
 
-        var area = new Rect(Screen.width / 2f - 170, 10, 340, restartIn >= 0 ? 75 : 50);
+        var area = new Rect(Screen.width / 2f - 210, 10, 420, restartIn >= 0 ? 75 : 50);
         GUILayout.BeginArea(area, GUI.skin.box);
         GUILayout.Label($"AI vs AI — match {matches + (restartIn >= 0 ? 0 : 1)}");
         GUILayout.Label(Scoreboard());

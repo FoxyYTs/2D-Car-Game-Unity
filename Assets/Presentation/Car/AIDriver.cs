@@ -10,7 +10,8 @@ using UnityEngine;
 [RequireComponent(typeof(CarWritter), typeof(CarSensors))]
 public class AIDriver : MonoBehaviour, IInputSource
 {
-    [Tooltip("File in Application.persistentDataPath saved by the TrainingManager. Empty: the most recent brain-seed*.json.")]
+    [Tooltip("File in Application.persistentDataPath. Empty: the most recent versus-seed*.json (trained to duel), " +
+             "or else the most recent brain-seed*.json (trained on checkpoints).")]
     public string BrainFile = "";
     [Tooltip("Must be the value the brain was trained with.")]
     [Min(1)] public float TargetDistanceScale = 50;
@@ -93,8 +94,13 @@ public class AIDriver : MonoBehaviour, IInputSource
         if (!string.IsNullOrEmpty(BrainFile))
             return Path.Combine(Application.persistentDataPath, BrainFile);
 
+        return NewestBrain(VersusTrainingManager.BRAIN_FILE_PREFIX) ?? NewestBrain(TrainingManager.BRAIN_FILE_PREFIX);
+    }
+
+    private static string NewestBrain(string prefix)
+    {
         return new DirectoryInfo(Application.persistentDataPath)
-                   .GetFiles($"{TrainingManager.BRAIN_FILE_PREFIX}*.json")
+                   .GetFiles($"{prefix}*.json")
                    .OrderByDescending(file => file.LastWriteTimeUtc)
                    .FirstOrDefault()?.FullName;
     }

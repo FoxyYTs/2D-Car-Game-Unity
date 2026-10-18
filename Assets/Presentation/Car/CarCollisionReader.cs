@@ -39,7 +39,10 @@ public class CarCollisionReader : MonoBehaviour
             }
         }
         else
+        {
             Collisions.OntoStatic = true;
+            Collisions.Obstacle = collision.collider.name;
+        }
 
         CrashHandler(this);
     }
