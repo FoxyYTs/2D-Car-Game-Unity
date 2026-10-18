@@ -1,5 +1,6 @@
 using Assets.Logic.AI;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEngine;
@@ -45,6 +46,8 @@ public class TrainingManager : MonoBehaviour
     // Fitness on different circuits is not comparable, so the record restarts with every circuit.
     public float BestOnCircuit { get; private set; }
     public float LastGenerationBest { get; private set; }
+    // Best and average fitness of every finished generation, for the fitness chart.
+    public readonly List<Vector2> History = new();
 
     private CarAgent[] agents;
     private GeneticAlgorithm genetics;
@@ -143,6 +146,7 @@ public class TrainingManager : MonoBehaviour
         int best = Array.IndexOf(fitness, fitness.Max());
 
         LastGenerationBest = fitness[best];
+        History.Add(new Vector2(LastGenerationBest, fitness.Average()));
         Debug.Log($"Generation {Generation} (circuit {CircuitNumber}): best {LastGenerationBest:F2}, " +
                   $"average {fitness.Average():F2}{EliteReplay(fitness)}{Outcomes(best)}");
 

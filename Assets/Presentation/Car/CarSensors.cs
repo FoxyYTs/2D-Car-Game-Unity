@@ -24,6 +24,9 @@ public class CarSensors : MonoBehaviour
 
     public int Count => RayAngles.Length;
 
+    // Degrees from the front, positive to the left; 180 is the rear ray.
+    public IReadOnlyList<float> Angles => RayAngles;
+
     public IReadOnlyList<float> Readings => readings ??= Fill(new float[Count], 1);
 
     private float[] RayAngles => rayAngles ??= BuildRayAngles();

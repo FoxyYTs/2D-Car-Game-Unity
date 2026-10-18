@@ -16,7 +16,14 @@ namespace Assets.Logic.AI
         /// <summary>Total de pesos + sesgos = longitud del genoma.</summary>
         public int ParameterCount { get; }
 
+        /// <summary>
+        /// Activaciones de cada capa en el último <see cref="Feedforward"/>, empezando por las entradas;
+        /// vacío si todavía no se llamó. Sirve para ver lo que "piensa" la red.
+        /// </summary>
+        public IReadOnlyList<float[]> LastActivations => lastActivations;
+
         private readonly float[] parameters;
+        private float[][] lastActivations = Array.Empty<float[]>();
 
         /// <summary>
         /// Requiere al menos 2 capas (entrada y salida) y al menos 1 neurona por capa;
@@ -63,6 +70,22 @@ namespace Assets.Logic.AI
             Array.Copy(genome, parameters, ParameterCount);
         }
 
+        /// <summary>Peso de la neurona <paramref name="from"/> de la capa <paramref name="layer"/> a la neurona
+        /// <paramref name="to"/> de la capa siguiente (capa 0 = entradas).</summary>
+        public float Weight(int layer, int from, int to) => parameters[NeuronStart(layer, to) + from];
+
+        /// <summary>Sesgo de la neurona <paramref name="neuron"/> de la capa <paramref name="layer"/> + 1.</summary>
+        public float Bias(int layer, int neuron) => parameters[NeuronStart(layer, neuron) + Layers[layer]];
+
+        // Where the genes of a neuron of layer + 1 start: its incoming weights, then its bias.
+        private int NeuronStart(int layer, int neuron)
+        {
+            if (layer < 0 || layer >= Layers.Count - 1 || neuron < 0 || neuron >= Layers[layer + 1])
+                throw new ArgumentOutOfRangeException(nameof(layer));
+
+            return CountParameters(Layers.Take(layer + 1).ToArray()) + neuron * (Layers[layer] + 1);
+        }
+
         /// <summary>
         /// Propaga las entradas capa por capa: salida_j = tanh(Σ_i w_ij · entrada_i + sesgo_j).
         /// Si la cantidad de entradas no coincide con la primera capa, lanza <see cref="ArgumentException"/>.
@@ -73,6 +96,8 @@ namespace Assets.Logic.AI
                 throw new ArgumentException($"The network expects {Layers[0]} inputs", nameof(inputs));
 
             float[] activations = inputs;
+            var trace = new float[Layers.Count][];
+            trace[0] = inputs;
             int parameter = 0;
 
             for (int layer = 1; layer < Layers.Count; layer++)
@@ -90,8 +115,10 @@ namespace Assets.Logic.AI
                 }
 
                 activations = next;
+                trace[layer] = next;
             }
 
+            lastActivations = trace;
             return activations;
         }
     }
