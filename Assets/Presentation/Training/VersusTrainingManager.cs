@@ -88,6 +88,8 @@ public class VersusTrainingManager : MonoBehaviour
     [Range(1, 10)] public float SimulationSpeed = 1;
 
     public int Generation { get; private set; }
+    // Best and average fitness of every finished generation, for the fitness chart.
+    public readonly List<Vector2> History = new();
 
     private DuelAgent[] agents;
     private GeneticAlgorithm genetics;
@@ -417,6 +419,7 @@ public class VersusTrainingManager : MonoBehaviour
     {
         var fitness = scoreSum.Select(sum => sum / ROUNDS).ToArray();
         int champion = Array.IndexOf(fitness, fitness.Max());
+        History.Add(new Vector2(fitness[champion], fitness.Average()));
 
         lastGeneration = $"best {fitness[champion]:F2}, average {fitness.Average():F2}";
         Debug.Log($"Generation {Generation}: {lastGeneration}; {Endings()}");

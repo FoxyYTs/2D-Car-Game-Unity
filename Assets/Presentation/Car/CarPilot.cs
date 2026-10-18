@@ -10,7 +10,7 @@ using UnityEngine;
 public class CarPilot
 {
     // The network outputs throttle and steering in [-1, 1]; beyond this dead zone they press a key.
-    private const float OUTPUT_THRESHOLD = 0.3f;
+    public const float OUTPUT_THRESHOLD = 0.3f;
     private const int EXTRA_INPUTS = 4;
     public const int OUTPUTS = 2;
 
@@ -23,6 +23,20 @@ public class CarPilot
     private readonly List<InputValue> inputs = new();
 
     public static int InputCount(CarSensors sensors) => sensors.Count + EXTRA_INPUTS;
+
+    public string[] InputNames() => InputNames(sensors);
+
+    // Same order as the observation: positive ray angles look left.
+    public static string[] InputNames(CarSensors sensors)
+    {
+        var names = new List<string>();
+        foreach (float angle in sensors.Angles)
+            names.Add(angle == 180 ? "Rayo trasero"
+                      : angle == 0 ? "Rayo al frente"
+                      : $"Rayo {Mathf.Abs(angle):0}° {(angle > 0 ? "izq." : "der.")}");
+        names.AddRange(new[] { "Velocidad", "Volante", "Ángulo al objetivo", "Distancia al objetivo" });
+        return names.ToArray();
+    }
 
     public CarPilot(CarWritter writer, CarSensors sensors, NeuralNetwork brain, float targetDistanceScale)
     {

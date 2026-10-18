@@ -6,7 +6,7 @@ using UnityEngine;
 // A car in a training duel: its brain aims at the opponent. The VersusTrainingManager, which sees both cars,
 // decides how each match ends; the agent only reports its own crashes into obstacles.
 [RequireComponent(typeof(CarWritter), typeof(CarSensors), typeof(CarCollisionReader))]
-public class DuelAgent : MonoBehaviour, IInputSource
+public class DuelAgent : MonoBehaviour, IInputSource, IPilotedCar
 {
     private static readonly Color OUT_COLOR = new(0.4f, 0.4f, 0.4f, 0.5f);
 
@@ -14,6 +14,8 @@ public class DuelAgent : MonoBehaviour, IInputSource
     [Min(1)] public float TargetDistanceScale = 50;
 
     public bool Playing { get; private set; }
+    public CarPilot Pilot => pilot;
+    public bool Active => Playing;
     public bool Crashed { get; private set; }
     public string CrashedInto { get; private set; }
     public float AliveTime { get; private set; }

@@ -5,7 +5,7 @@ using UnityEngine;
 
 // Drives a car with a neural network and scores how far it gets along a CheckpointCircuit.
 [RequireComponent(typeof(CarWritter), typeof(CarSensors), typeof(CarCollisionReader))]
-public class CarAgent : MonoBehaviour, IInputSource
+public class CarAgent : MonoBehaviour, IInputSource, IPilotedCar
 {
     public enum Outcome
     {
@@ -23,6 +23,8 @@ public class CarAgent : MonoBehaviour, IInputSource
     [Min(1)] public float TargetDistanceScale = 50;
 
     public bool Alive { get; private set; }
+    public CarPilot Pilot => pilot;
+    public bool Active => Alive;
     public Outcome Result { get; private set; }
     public int CheckpointsReached { get; private set; }
     public int NextCheckpointIndex => CheckpointsReached % circuit.Count;

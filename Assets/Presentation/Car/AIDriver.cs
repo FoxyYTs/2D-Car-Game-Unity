@@ -8,7 +8,7 @@ using UnityEngine;
 // Lets a trained brain drive this car in a versus match, aiming at the opponent.
 // Enabled: the AI drives. Disabled (also during play): the keyboard drives again.
 [RequireComponent(typeof(CarWritter), typeof(CarSensors))]
-public class AIDriver : MonoBehaviour, IInputSource
+public class AIDriver : MonoBehaviour, IInputSource, IPilotedCar
 {
     [Tooltip("File in Application.persistentDataPath. Empty: the most recent versus-seed*.json (trained to duel), " +
              "or else the most recent brain-seed*.json (trained on checkpoints).")]
@@ -22,6 +22,8 @@ public class AIDriver : MonoBehaviour, IInputSource
     [Range(0, 45)] public float HeadingJitter = 10;
 
     public bool Driving { get; private set; }
+    public CarPilot Pilot => pilot;
+    public bool Active => Driving;
 
     private CarWritter writer;
     private CarPilot pilot;
