@@ -161,7 +161,7 @@ public class MainMenu : MonoBehaviour
                 BrainField("Cerebro del que huye", () => GameSession.RunnerBrainFile, file => GameSession.RunnerBrainFile = file,
                            entry => entry.Brain.Course is "RandomPoints" or "Curriculum");
                 Note("Automático usa el cerebro más reciente de puntos al azar o del currículo; los perseguidores " +
-                     "arrancan de copias mutadas de él. El que huye sale 3 s antes. Embestir vale 2 y otro contacto 1, " +
+                     "arrancan de copias mutadas de él. El que huye sale 5 s antes y no se elimina si choca. Embestir vale 2 y otro contacto 1, " +
                      "más hasta 1 por hacerlo rápido; si no lo alcanza, hasta 1 por acercarse.");
                 break;
 

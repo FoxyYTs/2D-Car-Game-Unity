@@ -64,8 +64,8 @@ public class TrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
     public string RunnerBrainFile = "";
     [Tooltip("Chasers start this far behind their runner.")]
     [Min(1)] public float ChaseStartDistance = 6;
-    [Tooltip("Seconds the runners drive before the chasers start: from a standstill they were caught at once.")]
-    [Min(0)] public float RunnerHeadStart = 3;
+    [Tooltip("Seconds the runners drive before the chasers start: with 3 s they were still caught about 2 s later.")]
+    [Min(0)] public float RunnerHeadStart = 5;
     [Tooltip("Start the chasers from mutated copies of the runner's brain, which already drives to a target.")]
     public bool SeedChasersFromRunner = true;
 

@@ -29,7 +29,9 @@ public class CarAgent : MonoBehaviour, IInputSource, IPilotedCar
     public bool Active => Alive;
     public Outcome Result { get; private set; }
     public ITrainingTask Task { get; private set; }
-    // Drives a fixed brain for others to train against (the runner of a chase): not part of the population.
+    // Drives a fixed brain for others to train against (the runner of a chase): not part of the population. It never
+    // drops out: identical runners crashing on the same course ended the chase for every chaser at once, in about
+    // 70 % of the courses. Set it before Setup.
     public bool IsRunner { get; set; }
 
     public float Fitness => Alive ? Task.Fitness(transform.position) : finalFitness;
@@ -67,7 +69,11 @@ public class CarAgent : MonoBehaviour, IInputSource, IPilotedCar
 
         writer.ExternalStep = true;
         writer.Location.InputSource = this;
-        collisionReader.CrashHandler = _ => Die(Outcome.Crashed);
+        collisionReader.CrashHandler = _ =>
+        {
+            if (!IsRunner)
+                Die(Outcome.Crashed);
+        };
 
         // Ignore other agents inside the raycast itself: filtering them afterwards let a crowd of agents
         // fill the hit buffer and hide the obstacle behind them, so a genome's score depended on the others.
@@ -121,7 +127,13 @@ public class CarAgent : MonoBehaviour, IInputSource, IPilotedCar
         if (Task.Advance(transform.position))
             stallTime = 0;
         stallTime += deltaTime;
-        if (stallTime > StallTimeout)
+        if (stallTime > StallTimeout && IsRunner && Task is CheckpointTask stuck)
+        {
+            // Stuck against something or circling a checkpoint: let it head for the next one.
+            stuck.Skip();
+            stallTime = 0;
+        }
+        else if (stallTime > StallTimeout)
             Die(Outcome.Stalled);
     }
 
