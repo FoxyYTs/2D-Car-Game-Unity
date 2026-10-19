@@ -62,7 +62,8 @@ public class MainMenu : MonoBehaviour
         columns.AddToClassList("menu-columns");
         card.Add(columns);
 
-        var modes = new VisualElement();
+        // More modes than fit in a small window.
+        var modes = new ScrollView(ScrollViewMode.Vertical);
         modes.AddToClassList("menu-modes");
         columns.Add(modes);
         foreach (var (mode, modeTitle, description) in MODES)

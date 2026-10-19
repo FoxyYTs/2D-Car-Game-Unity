@@ -151,6 +151,7 @@
 .menu {
     width: 980px;
     max-width: 96%;
+    max-height: 94%;
     padding: 24px 28px;
 }
 
@@ -164,6 +165,9 @@
 .menu-columns {
     flex-direction: row;
     margin-top: 18px;
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-height: 0;
 }
 
 .menu-modes {
@@ -173,7 +177,7 @@
 
 .menu-options {
     flex-grow: 1;
-    min-height: 360px;
+    min-height: 300px;
 }
 
 .mode-button {
@@ -194,6 +198,10 @@
     border-color: var(--accent);
     border-width: 2px;
     background-color: rgba(124, 58, 237, 0.25);
+}
+
+.mode-button .muted {
+    -unity-text-align: upper-left;
 }
 
 .mode-title {
