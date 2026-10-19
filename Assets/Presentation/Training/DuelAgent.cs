@@ -23,10 +23,6 @@ public class DuelAgent : MonoBehaviour, IInputSource, IPilotedCar
     public float MinDistance { get; private set; }
     public DuelAgent Opponent { get; private set; }
 
-    // The game decides who rammed whom by which collider touched first: the front bumper or the body.
-    public CircleCollider2D Bumper { get; private set; }
-    public BoxCollider2D Body { get; private set; }
-
     public int InputCount => CarPilot.InputCount(GetComponent<CarSensors>());
 
     private CarWritter writer;
@@ -45,8 +41,6 @@ public class DuelAgent : MonoBehaviour, IInputSource, IPilotedCar
         body = GetComponent<Rigidbody2D>();
         sprite = GetComponent<SpriteRenderer>();
         playingColor = sprite.color;
-        Bumper = GetComponent<CircleCollider2D>();
-        Body = GetComponent<BoxCollider2D>();
 
         pilot = new CarPilot(writer, sensors, brain, TargetDistanceScale);
         writer.ExternalStep = true;

@@ -19,6 +19,7 @@ public class MainMenu : MonoBehaviour
         (GameMode.TrainRandomPoints, "Entrenar: puntos al azar", "Los checkpoints aparecen en cualquier lugar del mapa: aprende a moverse libremente."),
         (GameMode.TrainExploration, "Entrenar: exploración", "Sin objetivo: gana puntos por recorrer zonas nuevas del mapa sin chocar."),
         (GameMode.TrainCurriculum, "Entrenar: currículo", "Anillo, puntos al azar y exploración en cada generación; se guarda el que mejor valida."),
+        (GameMode.TrainChase, "Entrenar: persecución", "Un carro naranja huye por puntos al azar y la población aprende a embestirlo."),
         (GameMode.TrainVersus, "Entrenar: versus", "Los cerebros se enfrentan por parejas para aprender a embestir.")
     };
 
@@ -153,6 +154,14 @@ public class MainMenu : MonoBehaviour
                 Note("Cada generación tiene 3 etapas y el fitness combina sus puntajes (0 a 1, chocar resta). " +
                      "Cada 10 generaciones los 5 mejores corren una batería fija de validación, siempre la misma; " +
                      "solo se guarda brain-seed<semilla>.json cuando mejora la validación.");
+                break;
+
+            case GameMode.TrainChase:
+                TrainingFields();
+                BrainField("Cerebro del que huye", () => GameSession.RunnerBrainFile, file => GameSession.RunnerBrainFile = file,
+                           entry => entry.Brain.Course is "RandomPoints" or "Curriculum");
+                Note("Automático usa el cerebro más reciente de puntos al azar o del currículo; los perseguidores " +
+                     "arrancan de copias mutadas de él. Embestir vale 2, otro contacto 1 y acercarse hasta 1.");
                 break;
 
             case GameMode.TrainExploration:

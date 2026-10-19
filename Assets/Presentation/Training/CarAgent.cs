@@ -11,7 +11,9 @@ public class CarAgent : MonoBehaviour, IInputSource, IPilotedCar
     {
         Running,
         Crashed,
-        Stalled
+        Stalled,
+        // Its task ended before the time limit, e.g. it caught the runner it was chasing.
+        Finished
     }
 
     private static readonly Color DEAD_COLOR = new(0.4f, 0.4f, 0.4f, 0.5f);
@@ -27,6 +29,8 @@ public class CarAgent : MonoBehaviour, IInputSource, IPilotedCar
     public bool Active => Alive;
     public Outcome Result { get; private set; }
     public ITrainingTask Task { get; private set; }
+    // Drives a fixed brain for others to train against (the runner of a chase): not part of the population.
+    public bool IsRunner { get; set; }
 
     public float Fitness => Alive ? Task.Fitness(transform.position) : finalFitness;
 
@@ -126,6 +130,8 @@ public class CarAgent : MonoBehaviour, IInputSource, IPilotedCar
         if (Alive && Task is CheckpointTask checkpoints)
             checkpoints.Reach(checkpoint);
     }
+
+    public void Finish() => Die(Outcome.Finished);
 
     public IReadOnlyList<InputValue> Read() => pilot.Drive(Task.Target(transform.position));
 
