@@ -73,6 +73,21 @@ public class CarAgent : MonoBehaviour, IInputSource, IPilotedCar
             sensors.ObstacleMask &= ~(1 << gameObject.layer);
     }
 
+    // Gives the agent another task; takes effect with the next Begin.
+    public void UseTask(ITrainingTask task)
+    {
+        Task = task;
+    }
+
+    // Out of this round: neither driving nor drawn, until the next Begin.
+    public void Bench()
+    {
+        Alive = false;
+        Result = Outcome.Running;
+        body.simulated = false;
+        sprite.enabled = false;
+    }
+
     public void Begin(float[] genome)
     {
         pilot.Brain.SetParameters(genome);
@@ -83,6 +98,7 @@ public class CarAgent : MonoBehaviour, IInputSource, IPilotedCar
         body.simulated = true;
         collisionReader.Collisions = new();
         sprite.color = aliveColor;
+        sprite.enabled = true;
 
         Task.Begin(startPosition);
         stallTime = 0;

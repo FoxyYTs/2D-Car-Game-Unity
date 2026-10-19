@@ -20,6 +20,22 @@ public class ExplorationTask : ITrainingTask
         columns = Mathf.CeilToInt((arenaMax.x - arenaMin.x) / cellSize) + 1;
     }
 
+    // Cells whose center is not inside an obstacle: about how many an agent could visit.
+    public static int CountFreeCells(Vector2 arenaMin, Vector2 arenaMax, float cellSize, LayerMask obstacles)
+    {
+        // Checkpoints are triggers on the obstacle layer: they are not in the way.
+        var filter = new ContactFilter2D { useTriggers = false };
+        filter.SetLayerMask(obstacles);
+        var hits = new Collider2D[1];
+
+        int free = 0;
+        for (float x = arenaMin.x + cellSize / 2; x < arenaMax.x; x += cellSize)
+            for (float y = arenaMin.y + cellSize / 2; y < arenaMax.y; y += cellSize)
+                if (Physics2D.OverlapPoint(new Vector2(x, y), filter, hits) == 0)
+                    free++;
+        return free;
+    }
+
     public void Begin(Vector2 start)
     {
         visited.Clear();

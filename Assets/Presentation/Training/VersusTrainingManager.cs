@@ -10,7 +10,7 @@ using UnityEngine;
 // each other: contact inside a match is detected geometrically, with the game's bumper-versus-body rules.
 // Every BenchmarkEvery generations the champion plays the champion of the previous benchmark (the first time, the
 // seed brain): whether it beats, and above all rams, its predecessor is the objective measure of progress.
-public class VersusTrainingManager : MonoBehaviour, IHudSource
+public class VersusTrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
 {
     public enum SelectionMethod
     {
@@ -89,7 +89,8 @@ public class VersusTrainingManager : MonoBehaviour, IHudSource
 
     public int Generation { get; private set; }
     // Best and average fitness of every finished generation, for the fitness chart.
-    public readonly List<Vector2> History = new();
+    public List<Vector2> History { get; } = new();
+    public List<int> CircuitStarts { get; } = new();
 
     private DuelAgent[] agents;
     private GeneticAlgorithm genetics;

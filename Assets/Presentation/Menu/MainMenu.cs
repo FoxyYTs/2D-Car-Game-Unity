@@ -18,6 +18,7 @@ public class MainMenu : MonoBehaviour
         (GameMode.TrainCheckpoints, "Entrenar: circuito", "La población aprende a seguir checkpoints alrededor de la montaña."),
         (GameMode.TrainRandomPoints, "Entrenar: puntos al azar", "Los checkpoints aparecen en cualquier lugar del mapa: aprende a moverse libremente."),
         (GameMode.TrainExploration, "Entrenar: exploración", "Sin objetivo: gana puntos por recorrer zonas nuevas del mapa sin chocar."),
+        (GameMode.TrainCurriculum, "Entrenar: currículo", "Anillo, puntos al azar y exploración en cada generación; se guarda el que mejor valida."),
         (GameMode.TrainVersus, "Entrenar: versus", "Los cerebros se enfrentan por parejas para aprender a embestir.")
     };
 
@@ -142,6 +143,16 @@ public class MainMenu : MonoBehaviour
                 circuit.RegisterValueChangedCallback(change => GameSession.CircuitChangeEvery = Math.Max(0, change.newValue));
                 options.Add(circuit);
                 Note("0 deja siempre el mismo circuito. Se guarda brain-seed<semilla>.json al terminar cada circuito.");
+                break;
+
+            case GameMode.TrainCurriculum:
+                TrainingFields();
+                var courses = new IntegerField("Cambiar de recorridos cada (gens)") { value = Math.Max(1, GameSession.CircuitChangeEvery) };
+                courses.RegisterValueChangedCallback(change => GameSession.CircuitChangeEvery = Math.Max(1, change.newValue));
+                options.Add(courses);
+                Note("Cada generación tiene 3 etapas y el fitness combina sus puntajes (0 a 1, chocar resta). " +
+                     "Cada 10 generaciones los 5 mejores corren una batería fija de validación, siempre la misma; " +
+                     "solo se guarda brain-seed<semilla>.json cuando mejora la validación.");
                 break;
 
             case GameMode.TrainExploration:

@@ -18,11 +18,24 @@ public static class BrainLibrary
         private string Kind => IsVersus ? "Versus"
                              : Brain.Course == nameof(TrainingManager.CourseKind.RandomPoints) ? "Puntos al azar"
                              : Brain.Course == nameof(TrainingManager.CourseKind.Exploration) ? "Exploración"
+                             : Brain.Course == "Curriculum" ? "Currículo"
                              : "Circuito";
 
         public string Label =>
             $"{Kind} · semilla {Brain.Seed} · gen {Brain.Generation} · " +
-            $"fitness {Brain.Fitness:F1} · {Saved:dd MMM HH:mm}";
+            $"fitness {Brain.Fitness:F2} · {Saved:dd MMM HH:mm}" + ScoresText;
+
+        // Validation score per environment, for brains trained by the curriculum.
+        private string ScoresText => Brain.Scores is { Length: > 0 }
+                                         ? " · " + string.Join(" ", Brain.Scores.Select(score => $"{Short(score.Name)} {score.Score:F2}"))
+                                         : "";
+
+        private static string Short(string environment) => environment switch
+        {
+            nameof(TrainingManager.CourseKind.Ring) => "anillo",
+            nameof(TrainingManager.CourseKind.RandomPoints) => "puntos",
+            _ => "explor."
+        };
     }
 
     public static List<Entry> List()
