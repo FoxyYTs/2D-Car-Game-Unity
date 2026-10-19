@@ -64,6 +64,8 @@ public class TrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
     public string RunnerBrainFile = "";
     [Tooltip("Chasers start this far behind their runner.")]
     [Min(1)] public float ChaseStartDistance = 6;
+    [Tooltip("Seconds the runners drive before the chasers start: from a standstill they were caught at once.")]
+    [Min(0)] public float RunnerHeadStart = 3;
     [Tooltip("Start the chasers from mutated copies of the runner's brain, which already drives to a target.")]
     public bool SeedChasersFromRunner = true;
 
@@ -162,11 +164,13 @@ public class TrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
         float deltaTime = Time.fixedDeltaTime;
         foreach (var runner in runners)
             runner.Tick(deltaTime);
-        foreach (var agent in agents)
-            agent.Tick(deltaTime);
+        bool chasersWait = Course == CourseKind.Chase && elapsed < RunnerHeadStart;
+        if (!chasersWait)
+            foreach (var agent in agents)
+                agent.Tick(deltaTime);
 
         elapsed += deltaTime;
-        if (Course == CourseKind.Chase)
+        if (Course == CourseKind.Chase && !chasersWait)
             ResolveChases();
 
         if (elapsed >= GenerationSeconds || agents.All(agent => !agent.Alive))
@@ -195,7 +199,7 @@ public class TrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
     private ITrainingTask NewTask(int index) => Course switch
     {
         CourseKind.Exploration => new ExplorationTask(Circuit.ArenaMin, Circuit.ArenaMax, ExplorationCellSize),
-        CourseKind.Chase => new ChaseTask(runners[index]),
+        CourseKind.Chase => new ChaseTask(runners[index], Time.fixedDeltaTime, GenerationSeconds - RunnerHeadStart),
         _ => new CheckpointTask(Circuit)
     };
 
