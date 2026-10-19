@@ -102,6 +102,9 @@ public class CarAgent : MonoBehaviour, IInputSource, IPilotedCar
     {
         pilot.Brain.SetParameters(genome);
 
+        // Out of the physics world first, which drops its contacts: a runner still pressed against a wall when the
+        // generation ended kept that contact across the teleport and drove differently from the other runners.
+        body.simulated = false;
         writer.ResetTo(startPosition, startRotation);
         body.linearVelocity = Vector2.zero;
         body.angularVelocity = 0;
