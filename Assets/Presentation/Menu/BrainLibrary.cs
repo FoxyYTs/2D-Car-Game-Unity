@@ -15,8 +15,12 @@ public static class BrainLibrary
 
         public bool IsVersus => File.StartsWith(VersusTrainingManager.BRAIN_FILE_PREFIX);
 
+        private string Kind => IsVersus ? "Versus"
+                             : Brain.Course == nameof(TrainingManager.CourseKind.RandomPoints) ? "Puntos al azar"
+                             : "Circuito";
+
         public string Label =>
-            $"{(IsVersus ? "Versus" : "Circuito")} · semilla {Brain.Seed} · gen {Brain.Generation} · " +
+            $"{Kind} · semilla {Brain.Seed} · gen {Brain.Generation} · " +
             $"fitness {Brain.Fitness:F1} · {Saved:dd MMM HH:mm}";
     }
 

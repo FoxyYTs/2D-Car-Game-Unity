@@ -207,7 +207,7 @@ public class BrainPanel : MonoBehaviour
 
         var history = History();
         chartBox.style.display = history is null ? DisplayStyle.None : DisplayStyle.Flex;
-        chart.Show(history);
+        chart.Show(history, FindAnyObjectByType<TrainingManager>()?.CircuitStarts);
     }
 
     private static string Detail(IPilotedCar car, CarPilot pilot)

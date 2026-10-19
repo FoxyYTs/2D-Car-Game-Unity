@@ -11,6 +11,7 @@ public class FitnessChart : VisualElement
     private static readonly Color GRID = new(0.23f, 0.23f, 0.37f);
 
     private IReadOnlyList<Vector2> history = new Vector2[0];
+    private IReadOnlyList<int> separators = new int[0];
     private int drawnCount = -1;
     private readonly Label top = new(), bottom = new(), generations = new();
 
@@ -34,9 +35,11 @@ public class FitnessChart : VisualElement
     }
 
     // Only redraws when a generation was added: the history only grows.
-    public void Show(IReadOnlyList<Vector2> shown)
+    // Separators: indices of history where something changed (a new circuit), drawn as vertical lines.
+    public void Show(IReadOnlyList<Vector2> shown, IReadOnlyList<int> changes = null)
     {
         history = shown ?? new Vector2[0];
+        separators = changes ?? new int[0];
         if (history.Count == drawnCount)
             return;
 
@@ -75,6 +78,16 @@ public class FitnessChart : VisualElement
 
         if (history.Count < 2)
             return;
+
+        painter.strokeColor = GRID;
+        foreach (int index in separators)
+        {
+            float x = Mathf.Lerp(plot.xMin, plot.xMax, index / (float)(history.Count - 1));
+            painter.BeginPath();
+            painter.MoveTo(new Vector2(x, plot.yMin));
+            painter.LineTo(new Vector2(x, plot.yMax));
+            painter.Stroke();
+        }
 
         Range(out float min, out float max);
         Line(painter, plot, min, max, point => point.y, AVERAGE);
