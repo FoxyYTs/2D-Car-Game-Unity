@@ -19,7 +19,9 @@ public class TrainingManager : MonoBehaviour, IHudSource
         // Checkpoints on a ring around the mountain.
         Ring,
         // Checkpoints anywhere on the map, in a random order.
-        RandomPoints
+        RandomPoints,
+        // No checkpoints: drive through as many cells of the map as possible without crashing.
+        Exploration
     }
 
     [Header("Scene")]
@@ -49,6 +51,8 @@ public class TrainingManager : MonoBehaviour, IHudSource
              "checkpoints instead of memorizing a route. 0 keeps the circuit of the scene.")]
     [Min(0)] public int CircuitChangeEvery = 10;
     public CourseKind Course = CourseKind.Ring;
+    [Tooltip("Exploration: side of the map cells; the fitness is the number of cells visited.")]
+    [Min(0.5f)] public float ExplorationCellSize = 2.5f;
 
     public int Generation { get; private set; }
     public int CircuitNumber { get; private set; }
@@ -84,6 +88,12 @@ public class TrainingManager : MonoBehaviour, IHudSource
         }
 
         AgentTemplate.gameObject.SetActive(false);
+        if (Course == CourseKind.Exploration)
+        {
+            // The map never changes, so every record is a better brain (see EndGeneration).
+            CircuitChangeEvery = 0;
+            Circuit.gameObject.SetActive(false);
+        }
         layers = new[] { AgentTemplate.InputCount, HiddenNeurons, CarPilot.OUTPUTS };
 
         seed = Seed != 0 ? Seed : Math.Max(1, Environment.TickCount & int.MaxValue);
@@ -144,9 +154,13 @@ public class TrainingManager : MonoBehaviour, IHudSource
         var agent = Instantiate(AgentTemplate, AgentTemplate.transform.parent);
         agent.name = $"Agent {index}";
         agent.gameObject.SetActive(true);
-        agent.Setup(Circuit, new NeuralNetwork(layers));
+        agent.Setup(NewTask(), new NeuralNetwork(layers));
         return agent;
     }
+
+    private ITrainingTask NewTask() => Course == CourseKind.Exploration
+                                           ? new ExplorationTask(Circuit.ArenaMin, Circuit.ArenaMax, ExplorationCellSize)
+                                           : new CheckpointTask(Circuit);
 
     private void StartGeneration()
     {
@@ -201,6 +215,11 @@ public class TrainingManager : MonoBehaviour, IHudSource
 
     private void LogCircuit()
     {
+        if (Course == CourseKind.Exploration)
+        {
+            Debug.Log($"Exploration with {ExplorationCellSize} m cells starts at generation {Generation}");
+            return;
+        }
         string direction = Course == CourseKind.RandomPoints ? "random points"
                          : Circuit.Clockwise ? "clockwise" : "counterclockwise";
         Debug.Log($"Circuit {CircuitNumber} ({direction}) starts at generation {Generation}:{Circuit.Describe()}");
@@ -223,7 +242,7 @@ public class TrainingManager : MonoBehaviour, IHudSource
         };
 
         return $"; crashed {crashed}, stalled {stalled}, out of time {running}; " +
-               $"best {ending} at ({position.x:F1}, {position.y:F1}) heading to checkpoint {champion.NextCheckpointIndex}";
+               $"best {ending} at ({position.x:F1}, {position.y:F1}) {champion.Task.Status}";
     }
 
     // The elites open the population (see GeneticAlgorithm.NextGeneration), so they are the first agents.
@@ -259,12 +278,13 @@ public class TrainingManager : MonoBehaviour, IHudSource
 
     public IEnumerable<string> HudLines => new[]
     {
+        Course == CourseKind.Exploration ? $"Exploración: celdas de {ExplorationCellSize} m" :
         $"{(Course == CourseKind.RandomPoints ? "Recorrido al azar" : "Circuito")} {CircuitNumber} " +
         (CircuitChangeEvery > 0 ? $"(cambia cada {CircuitChangeEvery})" : "(fijo)"),
         $"Vivos {agents.Count(agent => agent.Alive)} / {agents.Length}",
         $"Tiempo {elapsed:F1} / {GenerationSeconds:F0} s",
         $"Mejor de la generación anterior {LastGenerationBest:F2}",
-        $"Mejor en este circuito {BestOnCircuit:F2}"
+        $"{(Course == CourseKind.Exploration ? "Récord" : "Mejor en este circuito")} {BestOnCircuit:F2}"
     };
 
     [Serializable]

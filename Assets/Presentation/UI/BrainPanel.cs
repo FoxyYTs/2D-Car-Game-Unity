@@ -213,8 +213,12 @@ public class BrainPanel : MonoBehaviour
     private static string Detail(IPilotedCar car, CarPilot pilot)
     {
         string layers = string.Join(" → ", pilot.Brain.Layers);
-        return car is CarAgent agent ? $"Red {layers} · fitness {agent.Fitness:F2} · checkpoints {agent.CheckpointsReached}"
-                                     : $"Red {layers}";
+        return car switch
+        {
+            CarAgent { Task: CheckpointTask task } agent => $"Red {layers} · fitness {agent.Fitness:F2} · checkpoints {task.Reached}",
+            CarAgent { Task: ExplorationTask task } agent => $"Red {layers} · fitness {agent.Fitness:F2} · celdas {task.Visited}",
+            _ => $"Red {layers}"
+        };
     }
 
     private static IReadOnlyList<Vector2> History()

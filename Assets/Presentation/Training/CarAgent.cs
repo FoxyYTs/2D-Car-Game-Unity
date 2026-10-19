@@ -3,7 +3,7 @@ using EngineAbstractor;
 using System.Collections.Generic;
 using UnityEngine;
 
-// Drives a car with a neural network and scores how far it gets along a CheckpointCircuit.
+// Drives a car with a neural network and scores it on its ITrainingTask.
 [RequireComponent(typeof(CarWritter), typeof(CarSensors), typeof(CarCollisionReader))]
 public class CarAgent : MonoBehaviour, IInputSource, IPilotedCar
 {
@@ -16,21 +16,19 @@ public class CarAgent : MonoBehaviour, IInputSource, IPilotedCar
 
     private static readonly Color DEAD_COLOR = new(0.4f, 0.4f, 0.4f, 0.5f);
 
-    [Tooltip("Seconds without reaching the next checkpoint before the agent is eliminated.")]
+    [Tooltip("Seconds without progress in its task (e.g. reaching the next checkpoint) before the agent is eliminated.")]
     [Min(0.1f)] public float StallTimeout = 5;
 
-    [Tooltip("Distance to the next checkpoint is divided by this (about the arena width) to fit in [0, 1].")]
+    [Tooltip("Distance to the target is divided by this (about the arena width) to fit in [0, 1].")]
     [Min(1)] public float TargetDistanceScale = 50;
 
     public bool Alive { get; private set; }
     public CarPilot Pilot => pilot;
     public bool Active => Alive;
     public Outcome Result { get; private set; }
-    public int CheckpointsReached { get; private set; }
-    public int NextCheckpointIndex => CheckpointsReached % circuit.Count;
+    public ITrainingTask Task { get; private set; }
 
-    // Checkpoints reached in order, plus how close it got to the next one (0 to 1).
-    public float Fitness => Alive ? CheckpointsReached + Progress() : finalFitness;
+    public float Fitness => Alive ? Task.Fitness(transform.position) : finalFitness;
 
     public int InputCount => CarPilot.InputCount(GetComponent<CarSensors>());
 
@@ -42,7 +40,6 @@ public class CarAgent : MonoBehaviour, IInputSource, IPilotedCar
     private Color aliveColor;
 
     private CarPilot pilot;
-    private CheckpointCircuit circuit;
     private Vector3 startPosition;
     private Quaternion startRotation;
 
@@ -50,7 +47,7 @@ public class CarAgent : MonoBehaviour, IInputSource, IPilotedCar
     private float finalFitness;
 
     // Call once, right after the agent is activated and before its first Start.
-    public void Setup(CheckpointCircuit circuit, NeuralNetwork brain)
+    public void Setup(ITrainingTask task, NeuralNetwork brain)
     {
         writer = GetComponent<CarWritter>();
         sensors = GetComponent<CarSensors>();
@@ -59,7 +56,7 @@ public class CarAgent : MonoBehaviour, IInputSource, IPilotedCar
         sprite = GetComponent<SpriteRenderer>();
         aliveColor = sprite.color;
 
-        this.circuit = circuit;
+        Task = task;
         pilot = new CarPilot(writer, sensors, brain, TargetDistanceScale);
         startPosition = transform.position;
         startRotation = transform.rotation;
@@ -87,7 +84,7 @@ public class CarAgent : MonoBehaviour, IInputSource, IPilotedCar
         collisionReader.Collisions = new();
         sprite.color = aliveColor;
 
-        CheckpointsReached = 0;
+        Task.Begin(startPosition);
         stallTime = 0;
         Alive = true;
         Result = Outcome.Running;
@@ -101,6 +98,8 @@ public class CarAgent : MonoBehaviour, IInputSource, IPilotedCar
 
         writer.Step(deltaTime);
 
+        if (Task.Advance(transform.position))
+            stallTime = 0;
         stallTime += deltaTime;
         if (stallTime > StallTimeout)
             Die(Outcome.Stalled);
@@ -108,39 +107,22 @@ public class CarAgent : MonoBehaviour, IInputSource, IPilotedCar
 
     public void Reach(Checkpoint checkpoint)
     {
-        if (!Alive || checkpoint != circuit[CheckpointsReached])
-            return;
-
-        CheckpointsReached++;
-        stallTime = 0;
+        if (Alive && Task is CheckpointTask checkpoints)
+            checkpoints.Reach(checkpoint);
     }
 
-    public IReadOnlyList<InputValue> Read() => pilot.Drive(circuit[CheckpointsReached].transform.position);
+    public IReadOnlyList<InputValue> Read() => pilot.Drive(Task.Target(transform.position));
 
     private void Die(Outcome outcome)
     {
         if (!Alive)
             return;
 
-        finalFitness = CheckpointsReached + Progress();
+        finalFitness = Task.Fitness(transform.position);
         Alive = false;
         Result = outcome;
 
         body.simulated = false;
         sprite.color = DEAD_COLOR;
-    }
-
-    private float Progress()
-    {
-        Vector2 target = circuit[CheckpointsReached].transform.position;
-        Vector2 from = CheckpointsReached == 0
-                           ? startPosition
-                           : circuit[CheckpointsReached - 1].transform.position;
-
-        float span = Vector2.Distance(from, target);
-        if (span <= 0)
-            return 0;
-
-        return Mathf.Clamp01(1 - Vector2.Distance(transform.position, target) / span);
     }
 }
