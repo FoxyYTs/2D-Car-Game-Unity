@@ -7,6 +7,7 @@ public enum GameMode
     HumanVsAI,
     AIVsAI,
     TrainCheckpoints,
+    TrainRandomPoints,
     TrainVersus
 }
 
@@ -55,7 +56,7 @@ public static class GameSession
 
     private static string SceneOf(GameMode mode) => mode switch
     {
-        GameMode.TrainCheckpoints => TRAINING_SCENE,
+        GameMode.TrainCheckpoints or GameMode.TrainRandomPoints => TRAINING_SCENE,
         GameMode.TrainVersus => VERSUS_TRAINING_SCENE,
         _ => VERSUS_SCENE
     };
@@ -87,6 +88,8 @@ public static class GameSession
             training.Seed = Seed;
             training.SimulationSpeed = SimulationSpeed;
             training.CircuitChangeEvery = CircuitChangeEvery;
+            training.Course = Mode == GameMode.TrainRandomPoints ? TrainingManager.CourseKind.RandomPoints
+                                                                  : TrainingManager.CourseKind.Ring;
         }
 
         var versus = Object.FindAnyObjectByType<VersusTrainingManager>();

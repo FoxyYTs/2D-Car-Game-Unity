@@ -16,6 +16,7 @@ public class MainMenu : MonoBehaviour
         (GameMode.HumanVsAI, "Humano vs IA", "Juega contra un cerebro entrenado."),
         (GameMode.AIVsAI, "IA vs IA", "Exhibición: las partidas se reinician solas y llevan marcador."),
         (GameMode.TrainCheckpoints, "Entrenar: circuito", "La población aprende a seguir checkpoints alrededor de la montaña."),
+        (GameMode.TrainRandomPoints, "Entrenar: puntos al azar", "Los checkpoints aparecen en cualquier lugar del mapa: aprende a moverse libremente."),
         (GameMode.TrainVersus, "Entrenar: versus", "Los cerebros se enfrentan por parejas para aprender a embestir.")
     };
 
@@ -133,8 +134,9 @@ public class MainMenu : MonoBehaviour
                 break;
 
             case GameMode.TrainCheckpoints:
+            case GameMode.TrainRandomPoints:
                 TrainingFields();
-                var circuit = new IntegerField("Cambiar de circuito cada (gens)") { value = GameSession.CircuitChangeEvery };
+                var circuit = new IntegerField("Cambiar de recorrido cada (gens)") { value = GameSession.CircuitChangeEvery };
                 circuit.RegisterValueChangedCallback(change => GameSession.CircuitChangeEvery = Math.Max(0, change.newValue));
                 options.Add(circuit);
                 Note("0 deja siempre el mismo circuito. Se guarda brain-seed<semilla>.json al terminar cada circuito.");

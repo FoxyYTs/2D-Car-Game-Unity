@@ -14,6 +14,14 @@ public class TrainingManager : MonoBehaviour, IHudSource
         Roulette
     }
 
+    public enum CourseKind
+    {
+        // Checkpoints on a ring around the mountain.
+        Ring,
+        // Checkpoints anywhere on the map, in a random order.
+        RandomPoints
+    }
+
     [Header("Scene")]
     [Tooltip("Inactive car that every agent is cloned from; its pose is the starting line.")]
     public CarAgent AgentTemplate;
@@ -40,6 +48,7 @@ public class TrainingManager : MonoBehaviour, IHudSource
     [Tooltip("Rearrange the circuit into a new random ring every this many generations, so agents must follow the " +
              "checkpoints instead of memorizing a route. 0 keeps the circuit of the scene.")]
     [Min(0)] public int CircuitChangeEvery = 10;
+    public CourseKind Course = CourseKind.Ring;
 
     public int Generation { get; private set; }
     public int CircuitNumber { get; private set; }
@@ -95,6 +104,9 @@ public class TrainingManager : MonoBehaviour, IHudSource
 
         Generation = 1;
         CircuitNumber = 1;
+        // The scene's circuit is a ring: random points need their own course from the first generation.
+        if (Course == CourseKind.RandomPoints)
+            Circuit.Scatter(random, AgentTemplate.transform.position);
         LogCircuit();
         StartGeneration();
     }
@@ -173,7 +185,10 @@ public class TrainingManager : MonoBehaviour, IHudSource
 
     private void ChangeCircuit()
     {
-        Circuit.Rearrange(random);
+        if (Course == CourseKind.RandomPoints)
+            Circuit.Scatter(random, AgentTemplate.transform.position);
+        else
+            Circuit.Rearrange(random);
         CircuitNumber++;
         BestOnCircuit = 0;
         // The elites were scored on the previous circuit: their fitness is not expected to repeat.
@@ -183,7 +198,8 @@ public class TrainingManager : MonoBehaviour, IHudSource
 
     private void LogCircuit()
     {
-        string direction = Circuit.Clockwise ? "clockwise" : "counterclockwise";
+        string direction = Course == CourseKind.RandomPoints ? "random points"
+                         : Circuit.Clockwise ? "clockwise" : "counterclockwise";
         Debug.Log($"Circuit {CircuitNumber} ({direction}) starts at generation {Generation}:{Circuit.Describe()}");
     }
 
@@ -224,6 +240,7 @@ public class TrainingManager : MonoBehaviour, IHudSource
             Seed = seed,
             Generation = Generation,
             Circuit = CircuitNumber,
+            Course = Course.ToString(),
             Fitness = fitness,
             Layers = layers,
             Genome = genome
@@ -239,7 +256,8 @@ public class TrainingManager : MonoBehaviour, IHudSource
 
     public IEnumerable<string> HudLines => new[]
     {
-        CircuitChangeEvery > 0 ? $"Circuito {CircuitNumber} (cambia cada {CircuitChangeEvery})" : $"Circuito {CircuitNumber} (fijo)",
+        $"{(Course == CourseKind.RandomPoints ? "Recorrido al azar" : "Circuito")} {CircuitNumber} " +
+        (CircuitChangeEvery > 0 ? $"(cambia cada {CircuitChangeEvery})" : "(fijo)"),
         $"Vivos {agents.Count(agent => agent.Alive)} / {agents.Length}",
         $"Tiempo {elapsed:F1} / {GenerationSeconds:F0} s",
         $"Mejor de la generación anterior {LastGenerationBest:F2}",
@@ -252,6 +270,8 @@ public class TrainingManager : MonoBehaviour, IHudSource
         public int Seed;
         public int Generation;
         public int Circuit;
+        // CourseKind the brain was trained on; empty in brains saved before courses existed (all rings) and in versus brains.
+        public string Course;
         public float Fitness;
         public int[] Layers;
         public float[] Genome;

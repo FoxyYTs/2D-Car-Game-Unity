@@ -35,6 +35,10 @@ public class CheckpointCircuit : MonoBehaviour
     public Vector2 ArenaMin = new(-24.5f, -6.5f);
     public Vector2 ArenaMax = new(25, 10.5f);
 
+    [Header("Random points")]
+    [Tooltip("Length range of each leg when the checkpoints are scattered over the whole map.")]
+    public Vector2 ScatterLegRange = new(8, 25);
+
     [Header("Game view")]
     public bool ShowInGame = true;
 
@@ -73,6 +77,39 @@ public class CheckpointCircuit : MonoBehaviour
                 Checkpoints[i].transform.position = spot;
             else
                 Debug.LogWarning($"No free spot for {Checkpoints[i].name}; it keeps its position.");
+        }
+
+        RefreshMarkers();
+    }
+
+    // Moves every checkpoint to a random free spot anywhere in the arena, each one a leg of ScatterLegRange away from
+    // the previous one (the first from the starting line): agents must learn to drive anywhere, not only around the
+    // mountain. If no spot fits, the checkpoint keeps its place.
+    public void Scatter(System.Random random, Vector2 start)
+    {
+        var obstacles = new ContactFilter2D { useTriggers = false };
+        obstacles.SetLayerMask(ObstacleMask);
+        var overlaps = new Collider2D[1];
+        Vector2 previous = start;
+
+        for (int i = 0; i < Count; i++)
+        {
+            bool placed = false;
+            for (int attempt = 0; attempt < MAX_PLACEMENT_ATTEMPTS * 10 && !placed; attempt++)
+            {
+                var spot = new Vector2(Range(random, ArenaMin.x, ArenaMax.x), Range(random, ArenaMin.y, ArenaMax.y));
+                float leg = Vector2.Distance(previous, spot);
+                if (leg < ScatterLegRange.x || leg > ScatterLegRange.y ||
+                    Physics2D.OverlapCircle(spot, Clearance, obstacles, overlaps) > 0)
+                    continue;
+
+                Checkpoints[i].transform.position = spot;
+                placed = true;
+            }
+
+            if (!placed)
+                Debug.LogWarning($"No free spot for {Checkpoints[i].name}; it keeps its position.");
+            previous = Checkpoints[i].transform.position;
         }
 
         RefreshMarkers();
