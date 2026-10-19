@@ -17,6 +17,7 @@ public static class BrainLibrary
 
         private string Kind => IsVersus ? "Versus"
                              : Brain.Course == nameof(TrainingManager.CourseKind.RandomPoints) ? "Puntos al azar"
+                             : Brain.Course == nameof(TrainingManager.CourseKind.Exploration) ? "Exploración"
                              : "Circuito";
 
         public string Label =>

@@ -17,6 +17,7 @@ public class MainMenu : MonoBehaviour
         (GameMode.AIVsAI, "IA vs IA", "Exhibición: las partidas se reinician solas y llevan marcador."),
         (GameMode.TrainCheckpoints, "Entrenar: circuito", "La población aprende a seguir checkpoints alrededor de la montaña."),
         (GameMode.TrainRandomPoints, "Entrenar: puntos al azar", "Los checkpoints aparecen en cualquier lugar del mapa: aprende a moverse libremente."),
+        (GameMode.TrainExploration, "Entrenar: exploración", "Sin objetivo: gana puntos por recorrer zonas nuevas del mapa sin chocar."),
         (GameMode.TrainVersus, "Entrenar: versus", "Los cerebros se enfrentan por parejas para aprender a embestir.")
     };
 
@@ -141,6 +142,12 @@ public class MainMenu : MonoBehaviour
                 circuit.RegisterValueChangedCallback(change => GameSession.CircuitChangeEvery = Math.Max(0, change.newValue));
                 options.Add(circuit);
                 Note("0 deja siempre el mismo circuito. Se guarda brain-seed<semilla>.json al terminar cada circuito.");
+                break;
+
+            case GameMode.TrainExploration:
+                TrainingFields();
+                Note("El mapa se divide en celdas: el fitness es cuántas celdas distintas recorre. " +
+                     "Se guarda brain-seed<semilla>.json con cada récord.");
                 break;
 
             case GameMode.TrainVersus:
