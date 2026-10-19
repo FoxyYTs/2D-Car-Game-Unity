@@ -10,6 +10,7 @@ public enum GameMode
     TrainRandomPoints,
     TrainExploration,
     TrainCurriculum,
+    TrainChase,
     TrainVersus
 }
 
@@ -33,6 +34,7 @@ public static class GameSession
     public static string BrainB = "";
     public static string OpponentBrain = "";
     public static string SeedBrainFile = "";
+    public static string RunnerBrainFile = "";
 
     public static int PopulationSize = 30;
     public static int Seed = 0;
@@ -58,7 +60,7 @@ public static class GameSession
 
     private static string SceneOf(GameMode mode) => mode switch
     {
-        GameMode.TrainCheckpoints or GameMode.TrainRandomPoints or GameMode.TrainExploration or GameMode.TrainCurriculum => TRAINING_SCENE,
+        GameMode.TrainCheckpoints or GameMode.TrainRandomPoints or GameMode.TrainExploration or GameMode.TrainCurriculum or GameMode.TrainChase => TRAINING_SCENE,
         GameMode.TrainVersus => VERSUS_TRAINING_SCENE,
         _ => VERSUS_SCENE
     };
@@ -102,10 +104,12 @@ public static class GameSession
             training.Seed = Seed;
             training.SimulationSpeed = SimulationSpeed;
             training.CircuitChangeEvery = CircuitChangeEvery;
+            training.RunnerBrainFile = RunnerBrainFile;
             training.Course = Mode switch
             {
                 GameMode.TrainRandomPoints => TrainingManager.CourseKind.RandomPoints,
                 GameMode.TrainExploration => TrainingManager.CourseKind.Exploration,
+                GameMode.TrainChase => TrainingManager.CourseKind.Chase,
                 _ => TrainingManager.CourseKind.Ring
             };
         }

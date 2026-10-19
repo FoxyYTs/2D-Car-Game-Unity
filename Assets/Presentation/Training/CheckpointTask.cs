@@ -36,6 +36,11 @@ public class CheckpointTask : ITrainingTask
         reachedSinceLastStep = true;
     }
 
+    public void Skip()
+    {
+        Reached++;
+    }
+
     public bool Advance(Vector2 position)
     {
         bool progress = reachedSinceLastStep;

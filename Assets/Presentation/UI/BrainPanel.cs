@@ -147,7 +147,7 @@ public class BrainPanel : MonoBehaviour
     // While training on checkpoints, the agent with the best fitness so far; otherwise the first car.
     private IPilotedCar Leader()
     {
-        var agents = cars.OfType<CarAgent>().ToArray();
+        var agents = cars.OfType<CarAgent>().Where(agent => !agent.IsRunner).ToArray();
         if (agents.Length > 0)
             return agents.OrderByDescending(agent => agent.Fitness).First();
         return cars.FirstOrDefault();
@@ -217,6 +217,7 @@ public class BrainPanel : MonoBehaviour
         {
             CarAgent { Task: CheckpointTask task } agent => $"Red {layers} · fitness {agent.Fitness:F2} · checkpoints {task.Reached}",
             CarAgent { Task: ExplorationTask task } agent => $"Red {layers} · fitness {agent.Fitness:F2} · celdas {task.Visited}",
+            CarAgent { Task: ChaseTask } agent => $"Red {layers} · fitness {agent.Fitness:F2} · persigue al carro naranja",
             _ => $"Red {layers}"
         };
     }

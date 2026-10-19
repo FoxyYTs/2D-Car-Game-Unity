@@ -21,8 +21,12 @@ public class TrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
         // Checkpoints anywhere on the map, in a random order.
         RandomPoints,
         // No checkpoints: drive through as many cells of the map as possible without crashing.
-        Exploration
+        Exploration,
+        // Catch a runner driven by a trained brain along random points.
+        Chase
     }
+
+    private static readonly Color RUNNER_COLOR = new(1f, 0.55f, 0.15f);
 
     [Header("Scene")]
     [Tooltip("Inactive car that every agent is cloned from; its pose is the starting line.")]
@@ -54,6 +58,17 @@ public class TrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
     [Tooltip("Exploration: side of the map cells; the fitness is the number of cells visited.")]
     [Min(0.5f)] public float ExplorationCellSize = 2.5f;
 
+    [Header("Chase")]
+    [Tooltip("File in Application.persistentDataPath that drives the runners. Empty: the most recent brain trained on " +
+             "random points or by the curriculum.")]
+    public string RunnerBrainFile = "";
+    [Tooltip("Chasers start this far behind their runner.")]
+    [Min(1)] public float ChaseStartDistance = 6;
+    [Tooltip("Seconds the runners drive before the chasers start: with 3 s they were still caught about 2 s later.")]
+    [Min(0)] public float RunnerHeadStart = 5;
+    [Tooltip("Start the chasers from mutated copies of the runner's brain, which already drives to a target.")]
+    public bool SeedChasersFromRunner = true;
+
     public int Generation { get; private set; }
     public int CircuitNumber { get; private set; }
     // Fitness on different circuits is not comparable, so the record restarts with every circuit.
@@ -65,6 +80,9 @@ public class TrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
     public List<int> CircuitStarts { get; } = new();
 
     private CarAgent[] agents;
+    // Chase only: runner i is chased by agent i.
+    private CarAgent[] runners = Array.Empty<CarAgent>();
+    private float[] runnerGenome;
     private GeneticAlgorithm genetics;
     private System.Random random;
     private float[][] population;
@@ -95,6 +113,11 @@ public class TrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
             Circuit.gameObject.SetActive(false);
         }
         layers = new[] { AgentTemplate.InputCount, HiddenNeurons, CarPilot.OUTPUTS };
+        if (Course == CourseKind.Chase && !LoadRunnerBrain())
+        {
+            enabled = false;
+            return;
+        }
 
         seed = Seed != 0 ? Seed : Math.Max(1, Environment.TickCount & int.MaxValue);
         random = new System.Random(seed);
@@ -111,13 +134,17 @@ public class TrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
         };
         genetics = new GeneticAlgorithm(settings, selection, random);
 
+        if (Course == CourseKind.Chase)
+            runners = Enumerable.Range(0, PopulationSize).Select(SpawnRunner).ToArray();
         agents = Enumerable.Range(0, PopulationSize).Select(SpawnAgent).ToArray();
-        population = genetics.CreatePopulation(NeuralNetwork.CountParameters(layers));
+        population = Course == CourseKind.Chase && SeedChasersFromRunner
+                         ? MutatedCopies(runnerGenome)
+                         : genetics.CreatePopulation(NeuralNetwork.CountParameters(layers));
 
         Generation = 1;
         CircuitNumber = 1;
         // The scene's circuit is a ring: random points need their own course from the first generation.
-        if (Course == CourseKind.RandomPoints)
+        if (Scattered)
             Circuit.Scatter(random, AgentTemplate.transform.position);
         LogCircuit();
         StartGeneration();
@@ -135,10 +162,16 @@ public class TrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
     void FixedUpdate()
     {
         float deltaTime = Time.fixedDeltaTime;
-        foreach (var agent in agents)
-            agent.Tick(deltaTime);
+        foreach (var runner in runners)
+            runner.Tick(deltaTime);
+        bool chasersWait = Course == CourseKind.Chase && elapsed < RunnerHeadStart;
+        if (!chasersWait)
+            foreach (var agent in agents)
+                agent.Tick(deltaTime);
 
         elapsed += deltaTime;
+        if (Course == CourseKind.Chase && !chasersWait)
+            ResolveChases();
 
         if (elapsed >= GenerationSeconds || agents.All(agent => !agent.Alive))
             EndGeneration();
@@ -149,22 +182,127 @@ public class TrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
         Time.timeScale = 1;
     }
 
+    private bool Scattered => Course is CourseKind.RandomPoints or CourseKind.Chase;
+
     private CarAgent SpawnAgent(int index)
     {
         var agent = Instantiate(AgentTemplate, AgentTemplate.transform.parent);
         agent.name = $"Agent {index}";
+        // Setup takes the current pose as the agent's start.
+        if (Course == CourseKind.Chase)
+            agent.transform.position = ChaserStart();
         agent.gameObject.SetActive(true);
-        agent.Setup(NewTask(), new NeuralNetwork(layers));
+        agent.Setup(NewTask(index), new NeuralNetwork(layers));
         return agent;
     }
 
-    private ITrainingTask NewTask() => Course == CourseKind.Exploration
-                                           ? new ExplorationTask(Circuit.ArenaMin, Circuit.ArenaMax, ExplorationCellSize)
-                                           : new CheckpointTask(Circuit);
+    private ITrainingTask NewTask(int index) => Course switch
+    {
+        CourseKind.Exploration => new ExplorationTask(Circuit.ArenaMin, Circuit.ArenaMax, ExplorationCellSize),
+        CourseKind.Chase => new ChaseTask(runners[index], Time.fixedDeltaTime, GenerationSeconds - RunnerHeadStart),
+        _ => new CheckpointTask(Circuit)
+    };
+
+    // Behind the runner if there is room; otherwise beside or ahead of it.
+    private Vector3 ChaserStart()
+    {
+        var start = AgentTemplate.transform;
+        var obstacles = new ContactFilter2D { useTriggers = false };
+        obstacles.SetLayerMask(Circuit.ObstacleMask);
+        var hits = new Collider2D[1];
+
+        foreach (var direction in new[] { -start.up, -start.right, start.right, start.up })
+        {
+            var position = start.position + direction * ChaseStartDistance;
+            bool insideArena = position.x > Circuit.ArenaMin.x && position.x < Circuit.ArenaMax.x &&
+                               position.y > Circuit.ArenaMin.y && position.y < Circuit.ArenaMax.y;
+            if (insideArena && Physics2D.OverlapCircle(position, 1, obstacles, hits) == 0)
+                return position;
+        }
+
+        Debug.LogWarning("No free spot around the starting line for the chasers: they start behind it anyway.");
+        return start.position - start.up * ChaseStartDistance;
+    }
+
+    private CarAgent SpawnRunner(int index)
+    {
+        var runner = Instantiate(AgentTemplate, AgentTemplate.transform.parent);
+        runner.name = $"Runner {index}";
+        runner.GetComponent<SpriteRenderer>().color = RUNNER_COLOR;
+        runner.IsRunner = true;
+        runner.gameObject.SetActive(true);
+        runner.Setup(new CheckpointTask(Circuit), new NeuralNetwork(layers));
+        return runner;
+    }
+
+    private bool LoadRunnerBrain()
+    {
+        var entry = BrainLibrary.List().FirstOrDefault(brain =>
+            string.IsNullOrEmpty(RunnerBrainFile)
+                ? brain.Brain.Course is nameof(CourseKind.RandomPoints) or "Curriculum" && brain.Brain.Layers.SequenceEqual(layers)
+                : brain.File == RunnerBrainFile);
+
+        if (entry is null || !entry.Brain.Layers.SequenceEqual(layers))
+        {
+            Debug.LogError($"The chase needs a runner brain with layers [{string.Join(", ", layers)}]: train one on " +
+                           "random points or with the curriculum first, or set RunnerBrainFile.");
+            return false;
+        }
+
+        runnerGenome = entry.Brain.Genome;
+        Debug.Log($"Runners are driven by {entry.File} (generation {entry.Brain.Generation}, fitness {entry.Brain.Fitness:F2})");
+        return true;
+    }
+
+    // The runner's brain itself plus mutated copies of it.
+    private float[][] MutatedCopies(float[] genome)
+    {
+        var copies = new float[PopulationSize][];
+        for (int i = 0; i < copies.Length; i++)
+        {
+            copies[i] = genome.ToArray();
+            if (i > 0)
+                genetics.Mutate(copies[i]);
+        }
+        return copies;
+    }
+
+    // A chase ends when the chaser touches its runner or the runner is out (crashed or stuck).
+    private void ResolveChases()
+    {
+        // Contacts are checked on the poses just set, not on the ones of the last physics step.
+        Physics2D.SyncTransforms();
+
+        for (int i = 0; i < agents.Length; i++)
+        {
+            var chaser = agents[i];
+            var runner = runners[i];
+            if (!chaser.Alive || chaser.Task is not ChaseTask chase)
+                continue;
+
+            if (!runner.Alive)
+            {
+                chase.End(ChaseTask.Ending.RunnerOut);
+                chaser.Finish();
+                continue;
+            }
+
+            var contact = ContactRules.Resolve(chaser, runner);
+            if (contact == ContactRules.Contact.None)
+                continue;
+
+            chase.End(contact == ContactRules.Contact.FirstRams ? ChaseTask.Ending.Rammed : ChaseTask.Ending.Touched);
+            chaser.Finish();
+            runner.Finish();
+        }
+    }
 
     private void StartGeneration()
     {
         elapsed = 0;
+        // Runners first: a chaser measures its starting distance to its runner.
+        foreach (var runner in runners)
+            runner.Begin(runnerGenome);
         for (int i = 0; i < agents.Length; i++)
             agents[i].Begin(population[i]);
     }
@@ -201,7 +339,7 @@ public class TrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
 
     private void ChangeCircuit()
     {
-        if (Course == CourseKind.RandomPoints)
+        if (Scattered)
             Circuit.Scatter(random, AgentTemplate.transform.position);
         else
             Circuit.Rearrange(random);
@@ -220,7 +358,7 @@ public class TrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
             Debug.Log($"Exploration with {ExplorationCellSize} m cells starts at generation {Generation}");
             return;
         }
-        string direction = Course == CourseKind.RandomPoints ? "random points"
+        string direction = Scattered ? "random points"
                          : Circuit.Clockwise ? "clockwise" : "counterclockwise";
         Debug.Log($"Circuit {CircuitNumber} ({direction}) starts at generation {Generation}:{Circuit.Describe()}");
     }
@@ -230,6 +368,7 @@ public class TrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
     {
         int crashed = agents.Count(agent => agent.Result == CarAgent.Outcome.Crashed);
         int stalled = agents.Count(agent => agent.Result == CarAgent.Outcome.Stalled);
+        int finished = agents.Count(agent => agent.Result == CarAgent.Outcome.Finished);
         int running = agents.Count(agent => agent.Result == CarAgent.Outcome.Running);
 
         var champion = agents[best];
@@ -238,11 +377,21 @@ public class TrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
         {
             CarAgent.Outcome.Crashed => "crashed",
             CarAgent.Outcome.Stalled => "stalled",
+            CarAgent.Outcome.Finished => "finished",
             _ => "ran out of time"
         };
 
-        return $"; crashed {crashed}, stalled {stalled}, out of time {running}; " +
+        string chases = Course == CourseKind.Chase ? $"; {ChaseEndings()}" : "";
+        return $"; crashed {crashed}, stalled {stalled}, finished {finished}, out of time {running}{chases}; " +
                $"best {ending} at ({position.x:F1}, {position.y:F1}) {champion.Task.Status}";
+    }
+
+    private string ChaseEndings()
+    {
+        var endings = agents.Select(agent => ((ChaseTask)agent.Task).Result).ToArray();
+        return $"rammed {endings.Count(ending => ending == ChaseTask.Ending.Rammed)}, " +
+               $"touched {endings.Count(ending => ending == ChaseTask.Ending.Touched)}, " +
+               $"runner out {endings.Count(ending => ending == ChaseTask.Ending.RunnerOut)}";
     }
 
     // The elites open the population (see GeneticAlgorithm.NextGeneration), so they are the first agents.
@@ -279,7 +428,7 @@ public class TrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
     public IEnumerable<string> HudLines => new[]
     {
         Course == CourseKind.Exploration ? $"Exploración: celdas de {ExplorationCellSize} m" :
-        $"{(Course == CourseKind.RandomPoints ? "Recorrido al azar" : "Circuito")} {CircuitNumber} " +
+        $"{(Course == CourseKind.Chase ? "Persecución, recorrido" : Scattered ? "Recorrido al azar" : "Circuito")} {CircuitNumber} " +
         (CircuitChangeEvery > 0 ? $"(cambia cada {CircuitChangeEvery})" : "(fijo)"),
         $"Vivos {agents.Count(agent => agent.Alive)} / {agents.Length}",
         $"Tiempo {elapsed:F1} / {GenerationSeconds:F0} s",

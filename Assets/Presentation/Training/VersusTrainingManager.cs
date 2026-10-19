@@ -36,8 +36,6 @@ public class VersusTrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
 
     public const string BRAIN_FILE_PREFIX = "versus-seed";
     private const int ROUNDS = 2;
-    // Colliders closer than this count as touching, like the physics contact offset.
-    private const float CONTACT_DISTANCE = 0.02f;
 
     [Header("Scene")]
     [Tooltip("Inactive car that every agent is cloned from.")]
@@ -337,31 +335,21 @@ public class VersusTrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
             End(match, Ending.Crash, winner: match.Left);
     }
 
-    // The game's rules: my bumper on your body, I rammed you; bumper on bumper or body on body, a tie.
-    // Any other contact in the same step also makes it a tie, as both cars would get both flags.
+    // Any contact other than a clean ram in the same step is a tie, as both cars would get both flags.
     private void ResolveContact(Match match)
     {
-        DuelAgent a = match.Left, b = match.Right;
-        bool aRamsB = Touching(a.Bumper, b.Body);
-        bool bRamsA = Touching(b.Bumper, a.Body);
-        bool bumpers = Touching(a.Bumper, b.Bumper);
-        bool bodies = Touching(a.Body, b.Body);
-
-        if (!(aRamsB || bRamsA || bumpers || bodies))
-            return;
-
-        if (aRamsB && !bRamsA && !bumpers && !bodies)
-            End(match, Ending.Ram, winner: a);
-        else if (bRamsA && !aRamsB && !bumpers && !bodies)
-            End(match, Ending.Ram, winner: b);
-        else
-            End(match, Ending.HeadOn, winner: null);
-    }
-
-    private static bool Touching(Collider2D first, Collider2D second)
-    {
-        var distance = first.Distance(second);
-        return distance.isValid && distance.distance <= CONTACT_DISTANCE;
+        switch (ContactRules.Resolve(match.Left, match.Right))
+        {
+            case ContactRules.Contact.FirstRams:
+                End(match, Ending.Ram, winner: match.Left);
+                break;
+            case ContactRules.Contact.SecondRams:
+                End(match, Ending.Ram, winner: match.Right);
+                break;
+            case ContactRules.Contact.Tie:
+                End(match, Ending.HeadOn, winner: null);
+                break;
+        }
     }
 
     private void End(Match match, Ending ending, DuelAgent winner)
