@@ -82,6 +82,19 @@ public class CheckpointCircuit : MonoBehaviour
         RefreshMarkers();
     }
 
+    // The checkpoint centers in circuit order; setting them moves the checkpoints, e.g. back to a layout saved
+    // after Rearrange or Scatter.
+    public Vector2[] Positions
+    {
+        get => Checkpoints.Select(checkpoint => (Vector2)checkpoint.transform.position).ToArray();
+        set
+        {
+            for (int i = 0; i < Count && i < value.Length; i++)
+                Checkpoints[i].transform.position = value[i];
+            RefreshMarkers();
+        }
+    }
+
     // Moves every checkpoint to a random free spot anywhere in the arena, each one a leg of ScatterLegRange away from
     // the previous one (the first from the starting line): agents must learn to drive anywhere, not only around the
     // mountain. If no spot fits, the checkpoint keeps its place.

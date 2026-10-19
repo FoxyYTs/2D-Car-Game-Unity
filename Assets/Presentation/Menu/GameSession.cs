@@ -9,6 +9,7 @@ public enum GameMode
     TrainCheckpoints,
     TrainRandomPoints,
     TrainExploration,
+    TrainCurriculum,
     TrainVersus
 }
 
@@ -57,7 +58,7 @@ public static class GameSession
 
     private static string SceneOf(GameMode mode) => mode switch
     {
-        GameMode.TrainCheckpoints or GameMode.TrainRandomPoints or GameMode.TrainExploration => TRAINING_SCENE,
+        GameMode.TrainCheckpoints or GameMode.TrainRandomPoints or GameMode.TrainExploration or GameMode.TrainCurriculum => TRAINING_SCENE,
         GameMode.TrainVersus => VERSUS_TRAINING_SCENE,
         _ => VERSUS_SCENE
     };
@@ -83,7 +84,19 @@ public static class GameSession
         }
 
         var training = Object.FindAnyObjectByType<TrainingManager>();
-        if (training != null)
+        if (training != null && Mode == GameMode.TrainCurriculum)
+        {
+            // Same scene, its own trainer: the TrainingManager is disabled before it starts.
+            var curriculum = training.gameObject.AddComponent<CurriculumTrainingManager>();
+            curriculum.AgentTemplate = training.AgentTemplate;
+            curriculum.Circuit = training.Circuit;
+            curriculum.PopulationSize = PopulationSize;
+            curriculum.Seed = Seed;
+            curriculum.SimulationSpeed = SimulationSpeed;
+            curriculum.CircuitChangeEvery = Mathf.Max(1, CircuitChangeEvery);
+            training.enabled = false;
+        }
+        else if (training != null)
         {
             training.PopulationSize = PopulationSize;
             training.Seed = Seed;

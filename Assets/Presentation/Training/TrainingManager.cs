@@ -6,7 +6,7 @@ using System.Linq;
 using UnityEngine;
 
 // Runs generations of CarAgents on a circuit and evolves their brains with a genetic algorithm.
-public class TrainingManager : MonoBehaviour, IHudSource
+public class TrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
 {
     public enum SelectionMethod
     {
@@ -60,9 +60,9 @@ public class TrainingManager : MonoBehaviour, IHudSource
     public float BestOnCircuit { get; private set; }
     public float LastGenerationBest { get; private set; }
     // Best and average fitness of every finished generation, for the fitness chart.
-    public readonly List<Vector2> History = new();
+    public List<Vector2> History { get; } = new();
     // Index in History of the first generation of each new circuit: scores on different circuits are not comparable.
-    public readonly List<int> CircuitStarts = new();
+    public List<int> CircuitStarts { get; } = new();
 
     private CarAgent[] agents;
     private GeneticAlgorithm genetics;
@@ -298,5 +298,14 @@ public class TrainingManager : MonoBehaviour, IHudSource
         public float Fitness;
         public int[] Layers;
         public float[] Genome;
+        // Normalized score on each environment of the validation battery; empty unless trained by the curriculum.
+        public EnvironmentScore[] Scores;
+    }
+
+    [Serializable]
+    public class EnvironmentScore
+    {
+        public string Name;
+        public float Score;
     }
 }

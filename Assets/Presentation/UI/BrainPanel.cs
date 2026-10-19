@@ -207,7 +207,7 @@ public class BrainPanel : MonoBehaviour
 
         var history = History();
         chartBox.style.display = history is null ? DisplayStyle.None : DisplayStyle.Flex;
-        chart.Show(history, FindAnyObjectByType<TrainingManager>()?.CircuitStarts);
+        chart.Show(history?.History, history?.CircuitStarts);
     }
 
     private static string Detail(IPilotedCar car, CarPilot pilot)
@@ -221,12 +221,10 @@ public class BrainPanel : MonoBehaviour
         };
     }
 
-    private static IReadOnlyList<Vector2> History()
-    {
-        var checkpoints = FindAnyObjectByType<TrainingManager>();
-        if (checkpoints != null)
-            return checkpoints.History;
-        var versus = FindAnyObjectByType<VersusTrainingManager>();
-        return versus != null ? versus.History : null;
-    }
+    // The running trainer: the curriculum disables the TrainingManager of its scene.
+    private static IFitnessHistory History() =>
+        FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)
+            .Where(component => component.isActiveAndEnabled)
+            .OfType<IFitnessHistory>()
+            .FirstOrDefault();
 }
