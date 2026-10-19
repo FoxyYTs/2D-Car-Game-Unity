@@ -35,7 +35,9 @@ public class VersusTrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
     }
 
     public const string BRAIN_FILE_PREFIX = "versus-seed";
-    private const int ROUNDS = 2;
+    // Every genome plays two matches per generation: one against a peer, the other against the hall of fame (or,
+    // while it is empty, against another peer from the other side).
+    private const int MATCHES_PER_GENOME = 2;
 
     [Header("Scene")]
     [Tooltip("Inactive car that every agent is cloned from.")]
@@ -78,6 +80,14 @@ public class VersusTrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
     public float ApproachBonus = 2;
     [Tooltip("Up to this much for not crashing into an obstacle.")]
     public float SurvivalBonus = 1;
+    [Tooltip("Taken off the score of a car that crashes into an obstacle (scores do not go below 0). Without it most " +
+             "matches ended with a car hitting the mountain or an edge.")]
+    [Min(0)] public float CrashPenalty = 3;
+
+    [Header("Hall of fame")]
+    [Tooltip("Past benchmark champions (and the seed brain) kept as opponents: playing only against the current " +
+             "population, agents can forget how to beat strategies that are no longer around.")]
+    [Min(1)] public int HallOfFameSize = 10;
 
     [Header("Benchmark")]
     [Min(1)] public int BenchmarkEvery = 10;
@@ -99,6 +109,9 @@ public class VersusTrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
     // Opponent of the next benchmark: the previous benchmark's champion. A fixed reference stopped measuring anything
     // once agents learned to dodge the mountain: it kept crashing into it and lost every match without being rammed.
     private float[] referenceGenome;
+    private readonly List<float[]> hallOfFame = new();
+    // Genomes that started on the left in the first round: against the hall of fame they take the other side.
+    private readonly HashSet<int> startedLeft = new();
     private string referenceName;
 
     private readonly List<Match> matches = new();
@@ -137,6 +150,8 @@ public class VersusTrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
         var seedBrain = LoadSeedBrain();
         layers = seedBrain?.Layers ?? new[] { AgentTemplate.InputCount, HiddenNeurons, CarPilot.OUTPUTS };
         referenceGenome = seedBrain?.Genome;
+        if (seedBrain != null)
+            hallOfFame.Add(seedBrain.Genome);
         referenceName = "the seed brain";
 
         ISelection selection = Selection == SelectionMethod.Roulette
@@ -210,31 +225,40 @@ public class VersusTrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
         return agent;
     }
 
+    // Kinds of brains to start from, best first: chasing is the closest to dueling.
+    private static readonly string[] SEED_PREFERENCE =
+        { nameof(TrainingManager.CourseKind.Chase), "Curriculum", nameof(TrainingManager.CourseKind.RandomPoints) };
+
+    // SeedBrainFile, or else the most recent brain of the most preferred kind there is; any checkpoint-trained
+    // brain if none. The most recent file of any kind would start from whatever was trained last, even exploration.
     private TrainingManager.SavedBrain LoadSeedBrain()
     {
-        string path = string.IsNullOrEmpty(SeedBrainFile)
-                          ? new DirectoryInfo(Application.persistentDataPath)
-                                .GetFiles($"{TrainingManager.BRAIN_FILE_PREFIX}*.json")
-                                .OrderByDescending(file => file.LastWriteTimeUtc)
-                                .FirstOrDefault()?.FullName
-                          : Path.Combine(Application.persistentDataPath, SeedBrainFile);
+        var fitting = BrainLibrary.List()
+                                  .Where(entry => !entry.IsVersus && entry.Brain.Layers[0] == AgentTemplate.InputCount &&
+                                                  entry.Brain.Layers[entry.Brain.Layers.Length - 1] == CarPilot.OUTPUTS)
+                                  .ToList();
+        var chosen = !string.IsNullOrEmpty(SeedBrainFile)
+                         ? fitting.FirstOrDefault(entry => entry.File == SeedBrainFile)
+                         : fitting.OrderBy(entry => Preference(entry.Brain.Course)).FirstOrDefault();
 
-        if (path is null || !File.Exists(path))
+        if (chosen is null)
         {
-            Debug.LogWarning("No seed brain found: training starts from random weights and there is no benchmark.");
+            Debug.LogWarning(string.IsNullOrEmpty(SeedBrainFile)
+                                 ? "No seed brain found: training starts from random weights and there is no benchmark."
+                                 : $"{SeedBrainFile} is missing or does not fit these cars: training starts from random weights.");
             return null;
         }
 
-        var brain = JsonUtility.FromJson<TrainingManager.SavedBrain>(File.ReadAllText(path));
-        if (brain.Layers is null || brain.Layers.Length < 2 || brain.Layers[0] != AgentTemplate.InputCount ||
-            brain.Layers[brain.Layers.Length - 1] != CarPilot.OUTPUTS)
-        {
-            Debug.LogWarning($"{Path.GetFileName(path)} does not fit these cars: training starts from random weights.");
-            return null;
-        }
+        Debug.Log($"Seed and benchmark brain: {chosen.File} ({chosen.Brain.Course}, generation {chosen.Brain.Generation}, " +
+                  $"fitness {chosen.Brain.Fitness:F2})");
+        return chosen.Brain;
+    }
 
-        Debug.Log($"Seed and benchmark brain: {Path.GetFileName(path)} (generation {brain.Generation}, fitness {brain.Fitness:F2})");
-        return brain;
+    // List() is newest first and OrderBy is stable, so the newest of each kind comes first.
+    private static int Preference(string course)
+    {
+        int index = Array.IndexOf(SEED_PREFERENCE, course);
+        return index < 0 ? SEED_PREFERENCE.Length : index;
     }
 
     // The seed brain itself plus mutated copies of it.
@@ -253,7 +277,7 @@ public class VersusTrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
     private void StartRound(int number)
     {
         // The second round's pairs come from the first round's matches: compute them before clearing.
-        var pairs = number == 0 ? FirstRoundPairs() : SecondRoundPairs();
+        var pairs = number == 0 ? FirstRoundPairs() : hallOfFame.Count == 0 ? SecondRoundPairs() : null;
 
         round = number;
         benchmarking = false;
@@ -261,10 +285,38 @@ public class VersusTrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
         matches.Clear();
         genomeOf.Clear();
         if (round == 0)
+        {
             scoreSum = new float[PopulationSize];
+            startedLeft.Clear();
+            startedLeft.UnionWith(pairs.Select(pair => pair.left));
+        }
 
-        foreach (var (left, right) in pairs)
-            Play(agents[left], population[left], agents[right], population[right]);
+        if (pairs is null)
+            PlayHallOfFame(half: round - 1);
+        else
+            foreach (var (left, right) in pairs)
+                Play(agents[left], population[left], agents[right], population[right]);
+    }
+
+    private int Rounds => hallOfFame.Count > 0 ? 3 : 2;
+
+    // Half of the population against random members of the hall of fame, driven by the other half's cars.
+    private void PlayHallOfFame(int half)
+    {
+        int count = PopulationSize / 2;
+        for (int k = 0; k < count; k++)
+        {
+            int genome = half * count + k;
+            DuelAgent own = agents[genome], rival = agents[(1 - half) * count + k];
+            var opponent = hallOfFame[random.Next(hallOfFame.Count)];
+
+            if (startedLeft.Contains(genome))
+                Play(rival, opponent, own, population[genome]);
+            else
+                Play(own, population[genome], rival, opponent);
+            // Not a genome of the population: its result is not scored.
+            genomeOf[rival] = -1;
+        }
     }
 
     // Random pairs; the first of each pair starts on the left.
@@ -375,7 +427,7 @@ public class VersusTrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
 
             if (benchmarking)
                 RecordBenchmark(agent, ending, won, lost);
-            else
+            else if (genomeOf[agent] >= 0)
                 scoreSum[genomeOf[agent]] += Score(agent, result);
 
             if (agent.Playing)
@@ -389,7 +441,8 @@ public class VersusTrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
                              ? ApproachBonus * Mathf.Clamp01(1 - agent.MinDistance / agent.StartDistance)
                              : 0;
         float survival = agent.Crashed ? SurvivalBonus * agent.AliveTime / RoundSeconds : SurvivalBonus;
-        return result + approach + survival;
+        float penalty = agent.Crashed ? CrashPenalty : 0;
+        return Mathf.Max(0, result + approach + survival - penalty);
     }
 
     private void EndRound()
@@ -399,7 +452,7 @@ public class VersusTrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
             EndBenchmark();
             NextGeneration();
         }
-        else if (round + 1 < ROUNDS)
+        else if (round + 1 < Rounds)
             StartRound(round + 1);
         else
             EndGeneration();
@@ -407,7 +460,7 @@ public class VersusTrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
 
     private void EndGeneration()
     {
-        var fitness = scoreSum.Select(sum => sum / ROUNDS).ToArray();
+        var fitness = scoreSum.Select(sum => sum / MATCHES_PER_GENOME).ToArray();
         int champion = Array.IndexOf(fitness, fitness.Max());
         History.Add(new Vector2(fitness[champion], fitness.Average()));
 
@@ -493,9 +546,19 @@ public class VersusTrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
     private void EndBenchmark()
     {
         lastBenchmark = string.Join(", ", BENCHMARK_ORDER.Select(key => $"{key} {benchmark.GetValueOrDefault(key)}"));
-        Debug.Log($"Benchmark after generation {Generation}, champion vs {referenceName}: {lastBenchmark}");
         endings.Clear();
         crashesInto.Clear();
+
+        // Only a champion that does not lose to the reference replaces it: saving every champion let a worse one
+        // (it crashed in 5 of 10 matches) overwrite the brain and join the hall of fame.
+        int won = benchmark.GetValueOrDefault("won ramming") + benchmark.GetValueOrDefault("won, reference crashed");
+        int lost = benchmark.GetValueOrDefault("lost, rammed") + benchmark.GetValueOrDefault("lost, crashed");
+        bool better = won >= lost;
+        Debug.Log($"Benchmark after generation {Generation}, champion vs {referenceName}: {lastBenchmark}. " +
+                  (better ? "It becomes the new reference." : "The reference stays."));
+        if (!better)
+            return;
+
         Save(championGenome, championFitness);
         BecomeReference(championGenome);
     }
@@ -503,6 +566,9 @@ public class VersusTrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
     private void BecomeReference(float[] genome)
     {
         referenceGenome = genome.ToArray();
+        hallOfFame.Add(referenceGenome);
+        if (hallOfFame.Count > HallOfFameSize)
+            hallOfFame.RemoveAt(0);
         referenceName = $"the champion of generation {Generation}";
     }
 
@@ -521,7 +587,7 @@ public class VersusTrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
     }
 
     public bool ShowHud => agents != null;
-    public string HudTitle => $"Generación {Generation} · {(benchmarking ? "prueba contra la referencia" : $"ronda {round + 1} / {ROUNDS}")}";
+    public string HudTitle => $"Generación {Generation} · {(benchmarking ? "prueba contra la referencia" : $"ronda {round + 1} / {Rounds}{(round > 0 && hallOfFame.Count > 0 ? " contra el Hall of Fame" : "")}")}";
     public bool HasSpeed => true;
     public float Speed { get => SimulationSpeed; set => SimulationSpeed = value; }
 

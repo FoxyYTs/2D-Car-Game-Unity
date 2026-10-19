@@ -175,7 +175,9 @@ public class MainMenu : MonoBehaviour
                 TrainingFields();
                 BrainField("Cerebro semilla", () => GameSession.SeedBrainFile, file => GameSession.SeedBrainFile = file,
                            entry => !entry.IsVersus);
-                Note("La población arranca de copias mutadas del cerebro semilla. Se guarda versus-seed<semilla>.json.");
+                Note("La población arranca de copias mutadas del cerebro semilla. Automático prefiere el más reciente de " +
+                     "persecución, luego currículo y luego puntos al azar. Cada cerebro juega una partida contra un " +
+                     "compañero y otra contra un campeón pasado (Hall of Fame); chocar resta 3. Se guarda versus-seed<semilla>.json.");
                 break;
         }
     }
