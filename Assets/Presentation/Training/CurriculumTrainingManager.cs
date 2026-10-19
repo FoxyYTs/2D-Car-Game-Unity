@@ -65,6 +65,11 @@ public class CurriculumTrainingManager : MonoBehaviour, IHudSource, IFitnessHist
     [Min(1)] public int ValidationRings = 3;
     [Min(1)] public int ValidationPointCourses = 3;
 
+    [Header("Exam")]
+    [Tooltip("Brain files to examine instead of training (empty list: every brain that fits these cars). " +
+             "Null trains. Each brain drives the validation battery once and gets a report card.")]
+    [HideInInspector] public List<string> ExamFiles;
+
     public int Generation { get; private set; }
     public float LastGenerationBest { get; private set; }
     public float BestValidation { get; private set; }
@@ -93,6 +98,14 @@ public class CurriculumTrainingManager : MonoBehaviour, IHudSource, IFitnessHist
     private float[] expectedEliteFitness = Array.Empty<float>();
     private string lastValidation = "";
 
+    private bool Examining => ExamFiles != null;
+    private List<BrainLibrary.Entry> examBrains;
+    // Outcome of each slot on each stage, for the report card.
+    private CarAgent.Outcome[][] outcomes;
+    private string[][] obstacles;
+    private readonly List<string> examReport = new();
+    private bool examDone;
+
     private string SavePath => Path.Combine(Application.persistentDataPath, $"{TrainingManager.BRAIN_FILE_PREFIX}{seed}.json");
     private Stage CurrentStage => stages[stageIndex];
 
@@ -107,6 +120,11 @@ public class CurriculumTrainingManager : MonoBehaviour, IHudSource, IFitnessHist
 
         AgentTemplate.gameObject.SetActive(false);
         layers = new[] { AgentTemplate.InputCount, HiddenNeurons, CarPilot.OUTPUTS };
+        if (Examining && !LoadExamBrains())
+        {
+            enabled = false;
+            return;
+        }
         freeCells = ExplorationTask.CountFreeCells(Circuit.ArenaMin, Circuit.ArenaMax, ExplorationCellSize, Circuit.ObstacleMask);
 
         seed = Seed != 0 ? Seed : Math.Max(1, Environment.TickCount & int.MaxValue);
@@ -128,20 +146,44 @@ public class CurriculumTrainingManager : MonoBehaviour, IHudSource, IFitnessHist
         agents = Enumerable.Range(0, PopulationSize).Select(SpawnAgent).ToArray();
         checkpointTasks = agents.Select(_ => new CheckpointTask(Circuit)).ToArray();
         explorationTasks = agents.Select(_ => new ExplorationTask(Circuit.ArenaMin, Circuit.ArenaMax, ExplorationCellSize)).ToArray();
-        population = genetics.CreatePopulation(NeuralNetwork.CountParameters(layers));
+        population = Examining
+                         ? examBrains.Select(entry => entry.Brain.Genome).ToArray()
+                         : genetics.CreatePopulation(NeuralNetwork.CountParameters(layers));
 
         // Its own random, so the battery does not depend on the training seed.
         validationStages = BuildStages(new System.Random(ValidationSeed), ValidationRings, ValidationPointCourses);
         trainingStages = BuildStages(random, 1, 1);
 
         Generation = 1;
-        StartGeneration();
+        if (Examining)
+            StartValidation(Enumerable.Range(0, PopulationSize).ToArray());
+        else
+            StartGeneration();
+    }
+
+    // Every brain of ExamFiles (or every one, if empty) whose inputs and outputs fit these cars.
+    private bool LoadExamBrains()
+    {
+        examBrains = BrainLibrary.List()
+                                 .Where(entry => ExamFiles.Count == 0 || ExamFiles.Contains(entry.File))
+                                 .Where(entry => entry.Brain.Layers[0] == AgentTemplate.InputCount &&
+                                                 entry.Brain.Layers[entry.Brain.Layers.Length - 1] == CarPilot.OUTPUTS)
+                                 .ToList();
+        if (examBrains.Count == 0)
+        {
+            Debug.LogError("There is no brain to examine that fits these cars.");
+            return false;
+        }
+
+        PopulationSize = examBrains.Count;
+        Debug.Log($"Examining {examBrains.Count} brains: {string.Join(", ", examBrains.Select(entry => entry.File))}");
+        return true;
     }
 
     void Update()
     {
         if (!PauseMenu.Paused)
-            Time.timeScale = SimulationSpeed;
+            Time.timeScale = examDone ? 1 : SimulationSpeed;
     }
 
     void OnDisable()
@@ -152,7 +194,7 @@ public class CurriculumTrainingManager : MonoBehaviour, IHudSource, IFitnessHist
     // Like the other trainers, the manager alone advances the simulation, so runs are repeatable.
     void FixedUpdate()
     {
-        if (agents is null)
+        if (agents is null || examDone)
             return;
 
         float deltaTime = Time.fixedDeltaTime;
@@ -169,7 +211,8 @@ public class CurriculumTrainingManager : MonoBehaviour, IHudSource, IFitnessHist
         var agent = Instantiate(AgentTemplate, AgentTemplate.transform.parent);
         agent.name = $"Agent {index}";
         agent.gameObject.SetActive(true);
-        agent.Setup(new CheckpointTask(Circuit), new NeuralNetwork(layers));
+        // Examined brains may differ in their hidden layers.
+        agent.Setup(new CheckpointTask(Circuit), new NeuralNetwork(Examining ? examBrains[index].Brain.Layers : layers));
         return agent;
     }
 
@@ -210,6 +253,8 @@ public class CurriculumTrainingManager : MonoBehaviour, IHudSource, IFitnessHist
     private void StartStages()
     {
         scores = genomeOf.Select(_ => new float[stages.Count]).ToArray();
+        outcomes = genomeOf.Select(_ => new CarAgent.Outcome[stages.Count]).ToArray();
+        obstacles = genomeOf.Select(_ => new string[stages.Count]).ToArray();
         stageIndex = 0;
         StartStage();
     }
@@ -240,7 +285,11 @@ public class CurriculumTrainingManager : MonoBehaviour, IHudSource, IFitnessHist
     {
         var stage = CurrentStage;
         for (int slot = 0; slot < genomeOf.Length; slot++)
+        {
             scores[slot][stageIndex] = Score(agents[slot], stage);
+            outcomes[slot][stageIndex] = agents[slot].Result;
+            obstacles[slot][stageIndex] = agents[slot].Result == CarAgent.Outcome.Crashed ? agents[slot].CrashedInto : null;
+        }
 
         if (!validating)
             LogStage(stage);
@@ -326,6 +375,12 @@ public class CurriculumTrainingManager : MonoBehaviour, IHudSource, IFitnessHist
     // Stages of the same kind are averaged first, so the battery's several rings weigh as much as its one map.
     private void EndValidation()
     {
+        if (Examining)
+        {
+            EndExam();
+            return;
+        }
+
         int champion = -1;
         float championScore = -1;
         EnvironmentScores championScores = null;
@@ -356,6 +411,48 @@ public class CurriculumTrainingManager : MonoBehaviour, IHudSource, IFitnessHist
         }
 
         NextGeneration();
+    }
+
+    // One line per brain, best first: score per environment and how its stages ended. The scores are written into
+    // the brain's file, so the menu shows them.
+    private void EndExam()
+    {
+        examDone = true;
+        var cards = new List<(float combined, string line)>();
+
+        for (int slot = 0; slot < genomeOf.Length; slot++)
+        {
+            var entry = examBrains[genomeOf[slot]];
+            var byEnvironment = ByEnvironment(scores[slot]);
+            float combined = FitnessAggregator.Combine(byEnvironment.Values, WorstWeight);
+
+            int crashes = outcomes[slot].Count(outcome => outcome == CarAgent.Outcome.Crashed);
+            int stalls = outcomes[slot].Count(outcome => outcome == CarAgent.Outcome.Stalled);
+            var hit = obstacles[slot].Where(name => name != null).GroupBy(name => name)
+                                     .Select(group => $"{group.Key} {group.Count()}");
+            string line = $"{entry.File}: {combined:F3} ({byEnvironment}); of {stages.Count} stages crashed {crashes}" +
+                          (crashes > 0 ? $" ({string.Join(", ", hit)})" : "") + $", stalled {stalls}";
+            cards.Add((combined, line));
+            WriteScores(entry, byEnvironment);
+        }
+
+        foreach (var (_, line) in cards.OrderByDescending(card => card.combined))
+        {
+            examReport.Add(line);
+            Debug.Log($"Exam: {line}");
+        }
+    }
+
+    private static void WriteScores(BrainLibrary.Entry entry, EnvironmentScores environmentScores)
+    {
+        string path = Path.Combine(Application.persistentDataPath, entry.File);
+        var brain = JsonUtility.FromJson<TrainingManager.SavedBrain>(File.ReadAllText(path));
+        brain.Scores = ENVIRONMENTS.Select((kind, i) => new TrainingManager.EnvironmentScore
+        {
+            Name = kind.ToString(),
+            Score = environmentScores.Values[i]
+        }).ToArray();
+        File.WriteAllText(path, JsonUtility.ToJson(brain, true));
     }
 
     private class EnvironmentScores
@@ -415,11 +512,17 @@ public class CurriculumTrainingManager : MonoBehaviour, IHudSource, IFitnessHist
     };
 
     public bool ShowHud => agents != null;
-    public string HudTitle => validating ? $"Validación tras la generación {Generation}" : $"Generación {Generation}";
+    public string HudTitle => Examining ? (examDone ? "Examen terminado" : $"Examen de {PopulationSize} cerebros")
+                            : validating ? $"Validación tras la generación {Generation}" : $"Generación {Generation}";
     public bool HasSpeed => true;
     public float Speed { get => SimulationSpeed; set => SimulationSpeed = value; }
 
-    public IEnumerable<string> HudLines => new[]
+    // The HUD is narrow: the best few brains, the full report is in the log.
+    public IEnumerable<string> HudLines => examDone
+                                               ? examReport.Take(6).Append(examReport.Count > 6 ? $"… y {examReport.Count - 6} más en el log" : "")
+                                               : StatusLines;
+
+    private IEnumerable<string> StatusLines => new[]
     {
         $"Etapa {stageIndex + 1} / {stages.Count}: {StageName(CurrentStage.Kind)}",
         $"Vivos {agents.Count(agent => agent.Alive)} / {genomeOf.Length}",

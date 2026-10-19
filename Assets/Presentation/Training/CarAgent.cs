@@ -34,6 +34,9 @@ public class CarAgent : MonoBehaviour, IInputSource, IPilotedCar
     // 70 % of the courses. Set it before Setup.
     public bool IsRunner { get; set; }
 
+    // The obstacle it crashed into, when Result is Crashed.
+    public string CrashedInto => collisionReader.Collisions.Obstacle;
+
     public float Fitness => Alive ? Task.Fitness(transform.position) : finalFitness;
 
     public int InputCount => CarPilot.InputCount(GetComponent<CarSensors>());
