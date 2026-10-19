@@ -546,9 +546,19 @@ public class VersusTrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
     private void EndBenchmark()
     {
         lastBenchmark = string.Join(", ", BENCHMARK_ORDER.Select(key => $"{key} {benchmark.GetValueOrDefault(key)}"));
-        Debug.Log($"Benchmark after generation {Generation}, champion vs {referenceName}: {lastBenchmark}");
         endings.Clear();
         crashesInto.Clear();
+
+        // Only a champion that does not lose to the reference replaces it: saving every champion let a worse one
+        // (it crashed in 5 of 10 matches) overwrite the brain and join the hall of fame.
+        int won = benchmark.GetValueOrDefault("won ramming") + benchmark.GetValueOrDefault("won, reference crashed");
+        int lost = benchmark.GetValueOrDefault("lost, rammed") + benchmark.GetValueOrDefault("lost, crashed");
+        bool better = won >= lost;
+        Debug.Log($"Benchmark after generation {Generation}, champion vs {referenceName}: {lastBenchmark}. " +
+                  (better ? "It becomes the new reference." : "The reference stays."));
+        if (!better)
+            return;
+
         Save(championGenome, championFitness);
         BecomeReference(championGenome);
     }
