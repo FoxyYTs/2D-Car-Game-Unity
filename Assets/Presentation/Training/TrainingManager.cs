@@ -57,6 +57,8 @@ public class TrainingManager : MonoBehaviour, IHudSource
     public float LastGenerationBest { get; private set; }
     // Best and average fitness of every finished generation, for the fitness chart.
     public readonly List<Vector2> History = new();
+    // Index in History of the first generation of each new circuit: scores on different circuits are not comparable.
+    public readonly List<int> CircuitStarts = new();
 
     private CarAgent[] agents;
     private GeneticAlgorithm genetics;
@@ -190,6 +192,7 @@ public class TrainingManager : MonoBehaviour, IHudSource
         else
             Circuit.Rearrange(random);
         CircuitNumber++;
+        CircuitStarts.Add(History.Count);
         BestOnCircuit = 0;
         // The elites were scored on the previous circuit: their fitness is not expected to repeat.
         expectedEliteFitness = Array.Empty<float>();
