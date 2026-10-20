@@ -430,8 +430,10 @@ public class CurriculumTrainingManager : MonoBehaviour, IHudSource, IFitnessHist
             int stalls = outcomes[slot].Count(outcome => outcome == CarAgent.Outcome.Stalled);
             var hit = obstacles[slot].Where(name => name != null).GroupBy(name => name)
                                      .Select(group => $"{group.Key} {group.Count()}");
+            var failures = ExamCriteria.Failures(byEnvironment.Values[0], byEnvironment.Values[1], byEnvironment.Values[2], crashes);
+            string verdict = failures.Count == 0 ? "PASSED" : $"FAILED: {string.Join(", ", failures)}";
             string line = $"{entry.File}: {combined:F3} ({byEnvironment}); of {stages.Count} stages crashed {crashes}" +
-                          (crashes > 0 ? $" ({string.Join(", ", hit)})" : "") + $", stalled {stalls}";
+                          (crashes > 0 ? $" ({string.Join(", ", hit)})" : "") + $", stalled {stalls}. {verdict}";
             cards.Add((combined, line));
             WriteScores(entry, byEnvironment);
         }
