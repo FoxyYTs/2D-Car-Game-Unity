@@ -20,6 +20,7 @@ public class MainMenu : MonoBehaviour
         (GameMode.TrainExploration, "Entrenar: exploración", "Sin objetivo: gana puntos por recorrer zonas nuevas del mapa sin chocar."),
         (GameMode.TrainCurriculum, "Entrenar: currículo", "Anillo, puntos al azar y exploración en cada generación; se guarda el que mejor valida."),
         (GameMode.TrainChase, "Entrenar: persecución", "Un carro naranja huye por puntos al azar y la población aprende a embestirlo."),
+        (GameMode.Exam, "Examinar cerebros", "Pasa cerebros guardados por la batería fija de validación y muestra su boletín."),
         (GameMode.TrainVersus, "Entrenar: versus", "Los cerebros se enfrentan por parejas para aprender a embestir.")
     };
 
@@ -156,6 +157,14 @@ public class MainMenu : MonoBehaviour
                      "solo se guarda brain-seed<semilla>.json cuando mejora la validación.");
                 break;
 
+            case GameMode.Exam:
+                BrainField("Cerebro", () => GameSession.ExamBrainFile, file => GameSession.ExamBrainFile = file,
+                           automaticLabel: "Todos los cerebros");
+                Note("Cada cerebro corre una vez los 3 anillos, los 3 recorridos de puntos y la exploración de la " +
+                     "validación del currículo, siempre los mismos. El boletín sale en pantalla y en el log, y el " +
+                     "puntaje por escenario queda guardado en el archivo del cerebro.");
+                break;
+
             case GameMode.TrainChase:
                 TrainingFields();
                 BrainField("Cerebro del que huye", () => GameSession.RunnerBrainFile, file => GameSession.RunnerBrainFile = file,
@@ -198,10 +207,10 @@ public class MainMenu : MonoBehaviour
     }
 
     private void BrainField(string label, Func<string> current, Action<string> set,
-                            Func<BrainLibrary.Entry, bool> filter = null)
+                            Func<BrainLibrary.Entry, bool> filter = null, string automaticLabel = AUTO_BRAIN)
     {
         var shown = brains.Where(filter ?? (_ => true)).ToList();
-        var choices = new List<string> { AUTO_BRAIN };
+        var choices = new List<string> { automaticLabel };
         choices.AddRange(shown.Select(entry => entry.Label));
 
         int index = shown.FindIndex(entry => entry.File == current()) + 1;

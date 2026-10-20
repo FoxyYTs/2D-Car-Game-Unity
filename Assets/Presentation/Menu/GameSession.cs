@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -11,6 +12,7 @@ public enum GameMode
     TrainExploration,
     TrainCurriculum,
     TrainChase,
+    Exam,
     TrainVersus
 }
 
@@ -35,6 +37,8 @@ public static class GameSession
     public static string OpponentBrain = "";
     public static string SeedBrainFile = "";
     public static string RunnerBrainFile = "";
+    // Empty: every brain.
+    public static string ExamBrainFile = "";
 
     public static int PopulationSize = 30;
     public static int Seed = 0;
@@ -60,7 +64,7 @@ public static class GameSession
 
     private static string SceneOf(GameMode mode) => mode switch
     {
-        GameMode.TrainCheckpoints or GameMode.TrainRandomPoints or GameMode.TrainExploration or GameMode.TrainCurriculum or GameMode.TrainChase => TRAINING_SCENE,
+        GameMode.TrainCheckpoints or GameMode.TrainRandomPoints or GameMode.TrainExploration or GameMode.TrainCurriculum or GameMode.TrainChase or GameMode.Exam => TRAINING_SCENE,
         GameMode.TrainVersus => VERSUS_TRAINING_SCENE,
         _ => VERSUS_SCENE
     };
@@ -86,7 +90,7 @@ public static class GameSession
         }
 
         var training = Object.FindAnyObjectByType<TrainingManager>();
-        if (training != null && Mode == GameMode.TrainCurriculum)
+        if (training != null && Mode is GameMode.TrainCurriculum or GameMode.Exam)
         {
             // Same scene, its own trainer: the TrainingManager is disabled before it starts.
             var curriculum = training.gameObject.AddComponent<CurriculumTrainingManager>();
@@ -96,6 +100,11 @@ public static class GameSession
             curriculum.Seed = Seed;
             curriculum.SimulationSpeed = SimulationSpeed;
             curriculum.CircuitChangeEvery = Mathf.Max(1, CircuitChangeEvery);
+            if (Mode == GameMode.Exam)
+            {
+                curriculum.ExamFiles = ExamBrainFile == "" ? new List<string>() : new List<string> { ExamBrainFile };
+                curriculum.SimulationSpeed = 10;
+            }
             training.enabled = false;
         }
         else if (training != null)
