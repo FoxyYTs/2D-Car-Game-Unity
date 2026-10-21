@@ -17,7 +17,7 @@ public class MainMenu : MonoBehaviour
         (GameMode.AIVsAI, "IA vs IA", "Exhibición: las partidas se reinician solas y llevan marcador."),
         (GameMode.TrainCheckpoints, "Entrenar: circuito", "La población aprende a seguir checkpoints alrededor de la montaña."),
         (GameMode.TrainRandomPoints, "Entrenar: puntos al azar", "Los checkpoints aparecen en cualquier lugar del mapa: aprende a moverse libremente."),
-        (GameMode.TrainExploration, "Entrenar: exploración", "Sin objetivo: gana puntos por recorrer zonas nuevas del mapa sin chocar."),
+        (GameMode.TrainExploration, "Entrenar: exploración", "Gana puntos por recorrer zonas nuevas del mapa sin chocar; su objetivo es la celda sin visitar más cercana."),
         (GameMode.TrainCurriculum, "Entrenar: currículo", "Anillo, puntos al azar y exploración en cada generación; se guarda el que mejor valida."),
         (GameMode.TrainChase, "Entrenar: persecución", "Un carro naranja huye por puntos al azar y la población aprende a embestirlo."),
         (GameMode.Exam, "Examinar cerebros", "Pasa cerebros guardados por la batería fija de validación y muestra su boletín."),
