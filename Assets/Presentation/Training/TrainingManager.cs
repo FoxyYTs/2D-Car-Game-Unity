@@ -82,6 +82,7 @@ public class TrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
     private CarAgent[] agents;
     // Chase only: runner i is chased by agent i.
     private CarAgent[] runners = Array.Empty<CarAgent>();
+    private List<Vector2> freeCells;
     private float[] runnerGenome;
     private GeneticAlgorithm genetics;
     private System.Random random;
@@ -111,6 +112,7 @@ public class TrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
             // The map never changes, so every record is a better brain (see EndGeneration).
             CircuitChangeEvery = 0;
             Circuit.gameObject.SetActive(false);
+            freeCells = ExplorationTask.FreeCells(Circuit.ArenaMin, Circuit.ArenaMax, ExplorationCellSize, Circuit.ObstacleMask);
         }
         layers = new[] { AgentTemplate.InputCount, HiddenNeurons, CarPilot.OUTPUTS };
         if (Course == CourseKind.Chase && !LoadRunnerBrain())
@@ -198,7 +200,7 @@ public class TrainingManager : MonoBehaviour, IHudSource, IFitnessHistory
 
     private ITrainingTask NewTask(int index) => Course switch
     {
-        CourseKind.Exploration => new ExplorationTask(Circuit.ArenaMin, Circuit.ArenaMax, ExplorationCellSize),
+        CourseKind.Exploration => new ExplorationTask(Circuit.ArenaMin, Circuit.ArenaMax, ExplorationCellSize, freeCells),
         CourseKind.Chase => new ChaseTask(runners[index], Time.fixedDeltaTime, GenerationSeconds - RunnerHeadStart),
         _ => new CheckpointTask(Circuit)
     };

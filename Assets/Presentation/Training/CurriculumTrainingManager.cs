@@ -84,7 +84,7 @@ public class CurriculumTrainingManager : MonoBehaviour, IHudSource, IFitnessHist
     private float[][] population;
     private int[] layers;
     private int seed;
-    private int freeCells;
+    private List<Vector2> freeCells;
 
     private List<Stage> trainingStages;
     private List<Stage> validationStages;
@@ -125,12 +125,12 @@ public class CurriculumTrainingManager : MonoBehaviour, IHudSource, IFitnessHist
             enabled = false;
             return;
         }
-        freeCells = ExplorationTask.CountFreeCells(Circuit.ArenaMin, Circuit.ArenaMax, ExplorationCellSize, Circuit.ObstacleMask);
+        freeCells = ExplorationTask.FreeCells(Circuit.ArenaMin, Circuit.ArenaMax, ExplorationCellSize, Circuit.ObstacleMask);
 
         seed = Seed != 0 ? Seed : Math.Max(1, Environment.TickCount & int.MaxValue);
         random = new System.Random(seed);
         Debug.Log($"Curriculum training seed {seed} (set it as Seed to repeat this run); brains are saved to {SavePath}. " +
-                  $"Exploration map: {freeCells} free cells of {ExplorationCellSize} m");
+                  $"Exploration map: {freeCells.Count} free cells of {ExplorationCellSize} m");
 
         ISelection selection = Selection == TrainingManager.SelectionMethod.Roulette
                                    ? new RouletteSelection()
@@ -145,7 +145,7 @@ public class CurriculumTrainingManager : MonoBehaviour, IHudSource, IFitnessHist
 
         agents = Enumerable.Range(0, PopulationSize).Select(SpawnAgent).ToArray();
         checkpointTasks = agents.Select(_ => new CheckpointTask(Circuit)).ToArray();
-        explorationTasks = agents.Select(_ => new ExplorationTask(Circuit.ArenaMin, Circuit.ArenaMax, ExplorationCellSize)).ToArray();
+        explorationTasks = agents.Select(_ => new ExplorationTask(Circuit.ArenaMin, Circuit.ArenaMax, ExplorationCellSize, freeCells)).ToArray();
         population = Examining
                          ? examBrains.Select(entry => entry.Brain.Genome).ToArray()
                          : genetics.CreatePopulation(NeuralNetwork.CountParameters(layers));
@@ -311,7 +311,7 @@ public class CurriculumTrainingManager : MonoBehaviour, IHudSource, IFitnessHist
         {
             CourseKind.Ring => fitness / (Circuit.Count * RingLaps),
             CourseKind.RandomPoints => fitness / Circuit.Count,
-            _ => fitness / Math.Max(1, freeCells)
+            _ => fitness / Math.Max(1, freeCells.Count)
         };
 
         if (agent.Result == CarAgent.Outcome.Crashed)
